@@ -37,7 +37,14 @@ class AuthController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $user = Auth::user();
             
-            // Check if user is active
+            // Check if user exists and is active
+            if (!$user) {
+                Auth::logout();
+                return back()->withErrors([
+                    'email' => 'Gagal memuat data user. Silakan coba lagi.',
+                ])->withInput($request->only('email'));
+            }
+            
             if (!$user->is_active) {
                 Auth::logout();
                 return back()->withErrors([

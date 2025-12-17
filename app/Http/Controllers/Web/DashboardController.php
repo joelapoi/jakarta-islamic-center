@@ -33,6 +33,12 @@ class DashboardController extends Controller
                 'approved' => $isAdmin ? PencairanDana::where('status', 'disetujui_kepala_jic')->count() : PencairanDana::where('created_by', $user->id)->where('status', 'disetujui_kepala_jic')->count(),
                 'disbursed' => $isAdmin ? PencairanDana::where('status', 'dicairkan')->count() : PencairanDana::where('created_by', $user->id)->where('status', 'dicairkan')->count(),
             ],
+            'rekap' => [
+                'total' => $isAdmin ? RekapPengajuan::count() : RekapPengajuan::where('created_by', $user->id)->count(),
+            ],
+            'lpj' => [
+                'total' => $isAdmin ? LpjKegiatan::count() : LpjKegiatan::where('created_by', $user->id)->count(),
+            ],
         ];
 
         // Recent activities
@@ -58,6 +64,6 @@ class DashboardController extends Controller
             $pendingApprovals['pencairan'] = PencairanDana::where('status', 'disetujui_kadiv_umum')->count();
         }
 
-        return view('dashboard.index', compact('stats', 'recentAnggaran', 'recentPencairan', 'pendingApprovals'));
+        return view('dashboard', compact('stats', 'recentAnggaran', 'recentPencairan', 'pendingApprovals', 'userRoles', 'user'));
     }
 }

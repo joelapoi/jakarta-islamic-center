@@ -186,19 +186,6 @@
                     </button>
                 </form>
 
-                <!-- Footer Info -->
-                <div class="text-center mt-4">
-                    <small class="text-muted d-block mb-2">
-                        <i class="fas fa-info-circle me-1"></i>Default credentials:
-                    </small>
-                    <small class="text-muted d-block">
-                        <strong>Email:</strong> admin@islamiccenter.com
-                    </small>
-                    <small class="text-muted">
-                        <strong>Password:</strong> password
-                    </small>
-                </div>
-
                 <!-- Divider -->
                 <hr class="my-4">
 
