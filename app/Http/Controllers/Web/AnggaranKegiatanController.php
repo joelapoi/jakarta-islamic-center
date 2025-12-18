@@ -48,9 +48,54 @@ class AnggaranKegiatanController extends Controller
             $query->where('created_by', auth()->id());
         }
 
-        $anggaran = $query->latest()->paginate(15);
+        $anggaran = $query->latest()->paginate(10);
 
-        return view('anggaran-kegiatan.index', compact('anggaran'));
+        // Calculate statistics
+        $statistics = $this->getStatistics();
+
+        // Check if user is staff
+        $isStaff = in_array('staff', $userRoles);
+
+        return view('anggaran-kegiatan.index', compact('anggaran', 'statistics', 'isStaff', 'userRoles'));
+    }
+
+    /**
+     * Get statistics for dashboard
+     */
+    private function getStatistics()
+    {
+        $baseQuery = AnggaranKegiatan::query();
+
+        // Filter by user role
+        $userRoles = Session::get('user_roles', []);
+        $viewAllRoles = ['super_admin', 'admin', 'kadiv', 'kadiv_umum', 'kepala_jic'];
+        
+        if (!count(array_intersect($userRoles, $viewAllRoles))) {
+            $baseQuery->where('created_by', auth()->id());
+        }
+
+        $totalAnggaran = (clone $baseQuery)->sum('anggaran_disetujui');
+        
+        $byStatus = [
+            'draft' => (clone $baseQuery)->where('status', 'draft')->count(),
+            'diajukan' => (clone $baseQuery)->where('status', 'diajukan')->count(),
+            'disetujui_kadiv' => (clone $baseQuery)->where('status', 'disetujui_kadiv')->count(),
+            'disetujui_kadiv_umum' => (clone $baseQuery)->where('status', 'disetujui_kadiv_umum')->count(),
+            'disetujui_kepala_jic' => (clone $baseQuery)->where('status', 'disetujui_kepala_jic')->count(),
+            'ditolak' => (clone $baseQuery)->where('status', 'ditolak')->count(),
+        ];
+
+        $totalApproved = $byStatus['disetujui_kepala_jic'];
+        $totalPending = $byStatus['diajukan'] + $byStatus['disetujui_kadiv'] + $byStatus['disetujui_kadiv_umum'];
+        $totalRejected = $byStatus['ditolak'];
+
+        return [
+            'total_anggaran' => $totalAnggaran,
+            'total_approved' => $totalApproved,
+            'total_pending' => $totalPending,
+            'total_rejected' => $totalRejected,
+            'by_status' => $byStatus
+        ];
     }
 
     /**
@@ -58,6 +103,12 @@ class AnggaranKegiatanController extends Controller
      */
     public function create()
     {
+        // Check if user is staff
+        $userRoles = Session::get('user_roles', []);
+        if (!in_array('staff', $userRoles) && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+            abort(403, 'Hanya staff yang dapat membuat anggaran kegiatan');
+        }
+
         return view('anggaran-kegiatan.create');
     }
 
@@ -66,6 +117,12 @@ class AnggaranKegiatanController extends Controller
      */
     public function store(Request $request)
     {
+        // Check if user is staff
+        $userRoles = Session::get('user_roles', []);
+        if (!in_array('staff', $userRoles) && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+            abort(403);
+        }
+
         $request->validate([
             'nama_kegiatan' => 'required|string|max:255',
             'deskripsi' => 'nullable|string',
@@ -159,15 +216,24 @@ class AnggaranKegiatanController extends Controller
     {
         $anggaran = AnggaranKegiatan::findOrFail($id);
 
-        // Check permission
+        // Check permission - only staff or admin can edit
         $userRoles = Session::get('user_roles', []);
-        if ($anggaran->created_by !== auth()->id() && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
-            abort(403, 'Anda tidak memiliki akses untuk mengedit anggaran kegiatan ini');
+        
+        // Only creator with staff role or admin/super_admin can edit
+        if ($anggaran->created_by === auth()->id()) {
+            if (!in_array('staff', $userRoles) && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403, 'Anda tidak memiliki akses untuk mengedit anggaran kegiatan ini');
+            }
+        } else {
+            if (!count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403, 'Anda tidak memiliki akses untuk mengedit anggaran kegiatan ini');
+            }
         }
 
         // Check if can edit based on status
         if (!in_array($anggaran->status, ['draft', 'ditolak'])) {
-            return back()->with('error', 'Tidak dapat mengedit anggaran kegiatan dengan status: ' . $anggaran->status);
+            return redirect()->route('anggaran-kegiatan.show', $anggaran->id)
+                ->with('error', 'Tidak dapat mengedit anggaran kegiatan dengan status: ' . $anggaran->status);
         }
 
         return view('anggaran-kegiatan.edit', compact('anggaran'));
@@ -182,13 +248,21 @@ class AnggaranKegiatanController extends Controller
 
         // Check permission
         $userRoles = Session::get('user_roles', []);
-        if ($anggaran->created_by !== auth()->id() && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
-            abort(403);
+        
+        if ($anggaran->created_by === auth()->id()) {
+            if (!in_array('staff', $userRoles) && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403);
+            }
+        } else {
+            if (!count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403);
+            }
         }
 
         // Check if can edit
         if (!in_array($anggaran->status, ['draft', 'ditolak'])) {
-            return back()->with('error', 'Tidak dapat mengedit anggaran kegiatan dengan status: ' . $anggaran->status);
+            return redirect()->route('anggaran-kegiatan.show', $anggaran->id)
+                ->with('error', 'Tidak dapat mengedit anggaran kegiatan dengan status: ' . $anggaran->status);
         }
 
         $request->validate([
@@ -232,15 +306,23 @@ class AnggaranKegiatanController extends Controller
     {
         $anggaran = AnggaranKegiatan::findOrFail($id);
 
-        // Check permission
+        // Check permission - only staff or admin can delete
         $userRoles = Session::get('user_roles', []);
-        if ($anggaran->created_by !== auth()->id() && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
-            abort(403);
+        
+        if ($anggaran->created_by === auth()->id()) {
+            if (!in_array('staff', $userRoles) && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403);
+            }
+        } else {
+            if (!count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403);
+            }
         }
 
         // Only draft can be deleted
         if ($anggaran->status !== 'draft') {
-            return back()->with('error', 'Hanya anggaran kegiatan dengan status draft yang dapat dihapus');
+            return redirect()->route('anggaran-kegiatan.index')
+                ->with('error', 'Hanya anggaran kegiatan dengan status draft yang dapat dihapus');
         }
 
         try {
@@ -248,7 +330,8 @@ class AnggaranKegiatanController extends Controller
             return redirect()->route('anggaran-kegiatan.index')
                 ->with('success', 'Anggaran kegiatan berhasil dihapus');
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal menghapus anggaran kegiatan: ' . $e->getMessage());
+            return redirect()->route('anggaran-kegiatan.index')
+                ->with('error', 'Gagal menghapus anggaran kegiatan: ' . $e->getMessage());
         }
     }
 
@@ -259,15 +342,23 @@ class AnggaranKegiatanController extends Controller
     {
         $anggaran = AnggaranKegiatan::findOrFail($id);
 
-        // Check permission
+        // Check permission - only staff or admin can submit
         $userRoles = Session::get('user_roles', []);
-        if ($anggaran->created_by !== auth()->id() && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
-            abort(403);
+        
+        if ($anggaran->created_by === auth()->id()) {
+            if (!in_array('staff', $userRoles) && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403);
+            }
+        } else {
+            if (!count(array_intersect($userRoles, ['super_admin', 'admin']))) {
+                abort(403);
+            }
         }
 
         // Check if can be submitted
         if (!in_array($anggaran->status, ['draft', 'ditolak'])) {
-            return back()->with('error', 'Hanya anggaran kegiatan draft atau ditolak yang dapat diajukan');
+            return redirect()->route('anggaran-kegiatan.show', $anggaran->id)
+                ->with('error', 'Hanya anggaran kegiatan draft atau ditolak yang dapat diajukan');
         }
 
         try {
@@ -279,7 +370,8 @@ class AnggaranKegiatanController extends Controller
             return redirect()->route('anggaran-kegiatan.show', $anggaran->id)
                 ->with('success', 'Anggaran kegiatan berhasil diajukan');
         } catch (\Exception $e) {
-            return back()->with('error', 'Gagal mengajukan anggaran kegiatan: ' . $e->getMessage());
+            return redirect()->route('anggaran-kegiatan.show', $anggaran->id)
+                ->with('error', 'Gagal mengajukan anggaran kegiatan: ' . $e->getMessage());
         }
     }
 

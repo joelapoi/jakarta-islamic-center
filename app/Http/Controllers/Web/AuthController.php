@@ -14,6 +14,10 @@ class AuthController extends Controller
      */
     public function showLoginForm()
     {
+        if (Auth::check()) {
+            return redirect()->route('dashboard');
+        }
+        
         return view('auth.login');
     }
 
@@ -37,7 +41,6 @@ class AuthController extends Controller
         if (Auth::attempt($credentials, $remember)) {
             $user = Auth::user();
             
-            // Check if user exists and is active
             if (!$user) {
                 Auth::logout();
                 return back()->withErrors([
@@ -52,7 +55,10 @@ class AuthController extends Controller
                 ])->withInput($request->only('email'));
             }
 
-            // Store user roles in session
+            // FIX: Load relasi roles terlebih dahulu sebelum getRoleNames()
+            $user->load('roles');
+            
+            // Sekarang getRoleNames() akan bekerja karena relasi sudah di-load
             $userRoles = $user->getRoleNames();
             Session::put('user_roles', $userRoles);
 
@@ -73,6 +79,9 @@ class AuthController extends Controller
     public function logout(Request $request)
     {
         Auth::logout();
+        
+        Session::forget('user_roles');
+        Session::forget('user_permissions');
         
         $request->session()->invalidate();
         $request->session()->regenerateToken();

@@ -34,10 +34,20 @@ class DashboardController extends Controller
                 'disbursed' => $isAdmin ? PencairanDana::where('status', 'dicairkan')->count() : PencairanDana::where('created_by', $user->id)->where('status', 'dicairkan')->count(),
             ],
             'rekap' => [
-                'total' => $isAdmin ? RekapPengajuan::count() : RekapPengajuan::where('created_by', $user->id)->count(),
+                // FIX: RekapPengajuan tidak punya created_by, filter melalui relasi pencairanDana
+                'total' => $isAdmin 
+                    ? RekapPengajuan::count() 
+                    : RekapPengajuan::whereHas('pencairanDana', function($q) use ($user) {
+                        $q->where('created_by', $user->id);
+                    })->count(),
             ],
             'lpj' => [
-                'total' => $isAdmin ? LpjKegiatan::count() : LpjKegiatan::where('created_by', $user->id)->count(),
+                // FIX: LpjKegiatan tidak punya created_by, filter melalui relasi anggaranKegiatan
+                'total' => $isAdmin 
+                    ? LpjKegiatan::count() 
+                    : LpjKegiatan::whereHas('anggaranKegiatan', function($q) use ($user) {
+                        $q->where('created_by', $user->id);
+                    })->count(),
             ],
         ];
 

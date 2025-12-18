@@ -10,9 +10,14 @@
                 <div class="fw-semibold" style="color: #2d8659;" id="user-display-name"></div>
                 <small class="text-muted" id="user-email"></small>
             </div>
-            <button class="btn btn-outline-danger btn-sm" onclick="logout()">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </button>
+            
+            <!-- Form logout dengan method POST -->
+            <form action="{{ route('logout') }}" method="POST" id="logout-form" class="d-inline">
+                @csrf
+                <button type="submit" class="btn btn-outline-danger btn-sm">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </form>
         </div>
     </div>
 </nav>
@@ -25,4 +30,15 @@
             document.getElementById('user-email').textContent = user.email;
         }
     });
+
+    // Optional: Fungsi logout alternatif jika masih menggunakan onclick
+    function logout() {
+        // Clear localStorage/sessionStorage
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        sessionStorage.clear();
+        
+        // Submit form logout
+        document.getElementById('logout-form').submit();
+    }
 </script>

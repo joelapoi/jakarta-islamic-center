@@ -7,8 +7,7 @@
     <title>@yield('title', 'Islamic Center HRM')</title>
     
     <!-- Bootstrap CSS -->
-    <!-- <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet"> -->
-     <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -152,7 +151,7 @@
     <!-- Loading Spinner -->
     <div id="loading">
         <div class="spinner-border text-light" role="status">
-            <span class="visually-hidden">Loading...</span>
+            <span class="sr-only">Loading...</span>
         </div>
     </div>
 
@@ -176,33 +175,32 @@
     </div>
 
     <!-- Bootstrap JS -->
-    
     <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
     
-    <!-- <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script> -->
-     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- API Helper -->
+    <!-- Helper Functions (hanya untuk backward compatibility jika masih ada yang pakai) -->
     <script>
         // API Base URL
         const API_BASE_URL = '{{ url('/api') }}';
         
         // Get JWT Token from localStorage
         function getToken() {
-            return localStorage.getItem('jwt_token');
+            return localStorage.getItem('jwt_token') || localStorage.getItem('token');
         }
         
         // Set JWT Token
         function setToken(token) {
             localStorage.setItem('jwt_token', token);
+            localStorage.setItem('token', token);
         }
         
         // Remove JWT Token
         function removeToken() {
             localStorage.removeItem('jwt_token');
+            localStorage.removeItem('token');
         }
         
-        // Get User from localStorage
+        // Get User from localStorage (backward compatibility only)
         function getUser() {
             const user = localStorage.getItem('user');
             return user ? JSON.parse(user) : null;
@@ -240,7 +238,9 @@
             alert.className = `alert alert-${type} alert-dismissible fade show`;
             alert.innerHTML = `
                 ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                <button type="button" class="close" data-dismiss="alert">
+                    <span>&times;</span>
+                </button>
             `;
             container.appendChild(alert);
             
@@ -250,81 +250,10 @@
             }, 5000);
         }
         
-        // API Call Helper
-        async function apiCall(endpoint, method = 'GET', data = null, showLoader = true) {
-            // if (showLoader) {
-            //     showLoading();
-            // }
-            
-            const token = getToken();
-            const headers = {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            };
-            
-            if (token) {
-                headers['Authorization'] = `Bearer ${token}`;
-            }
-            
-            const options = {
-                method,
-                headers
-            };
-            
-            if (data && (method === 'POST' || method === 'PUT' || method === 'PATCH')) {
-                options.body = JSON.stringify(data);
-            }
-            
-            try {
-                const response = await fetch(`${API_BASE_URL}${endpoint}`, options);
-                const result = await response.json();
-                
-                if (showLoader) {
-                    hideLoading();
-                }
-                
-                // Check if unauthorized
-                if (response.status === 401) {
-                    removeToken();
-                    removeUser();
-                    window.location.href = '/login';
-                    return null;
-                }
-                
-                return {
-                    status: response.status,
-                    data: result
-                };
-            } catch (error) {
-                if (showLoader) {
-                    hideLoading();
-                }
-                console.error('API Error:', error);
-                showFlash('An error occurred. Please try again.', 'danger');
-                return null;
-            }
-        }
-        
-        // Check authentication on protected pages
-        document.addEventListener('DOMContentLoaded', function() {
-            const isLoginPage = window.location.pathname === '/login' || window.location.pathname === '/';
-            
-            if (!isLoginPage && !isAuthenticated()) {
-                window.location.href = '/login';
-            }
-            
-            if (isLoginPage && isAuthenticated()) {
-                window.location.href = '/dashboard';
-            }
-        });
-        
         // Logout function
-        async function logout() {
+        function logout() {
             if (confirm('Are you sure you want to logout?')) {
-                await apiCall('/auth/logout', 'POST');
-                removeToken();
-                removeUser();
-                window.location.href = '/login';
+                document.getElementById('logout-form').submit();
             }
         }
     </script>

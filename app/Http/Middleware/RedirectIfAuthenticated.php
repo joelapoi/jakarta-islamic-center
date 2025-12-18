@@ -23,6 +23,11 @@ class RedirectIfAuthenticated
 
         foreach ($guards as $guard) {
             if (Auth::guard($guard)->check()) {
+                // Jika user sudah login dan akses root `/`, redirect ke dashboard
+                if ($request->path() === '/') {
+                    return redirect('/dashboard');
+                }
+                // Atau gunakan home constant
                 return redirect(RouteServiceProvider::HOME);
             }
         }
