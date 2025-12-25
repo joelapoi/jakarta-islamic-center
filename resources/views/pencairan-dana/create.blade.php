@@ -10,8 +10,38 @@
         </a>
     </div>
 
-    <!-- Alert Container -->
-    <div id="alertContainer"></div>
+    <!-- Alert Messages -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Terdapat kesalahan:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
 
     <!-- Form Card -->
     <div class="row">
@@ -21,20 +51,29 @@
                     <h6 class="m-0 font-weight-bold text-primary">Form Pengajuan Pencairan Dana</h6>
                 </div>
                 <div class="card-body">
-                    <form id="formPencairanDana">
+                    <form action="{{ route('pencairan-dana.store') }}" method="POST" id="formPencairanDana">
+                        @csrf
+
                         <div class="form-group">
                             <label for="anggaran_kegiatan_id">Kegiatan <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <input type="hidden" id="anggaran_kegiatan_id" name="anggaran_kegiatan_id">
-                                <input type="text" class="form-control" id="kegiatan_display" readonly 
-                                       placeholder="Pilih kegiatan">
-                                <div class="input-group-append">
-                                    <button class="btn btn-outline-secondary" type="button" id="btnPilihKegiatan">
-                                        <i class="fas fa-search"></i> Pilih
-                                    </button>
-                                </div>
-                            </div>
-                            <div class="invalid-feedback"></div>
+                            <select class="form-control @error('anggaran_kegiatan_id') is-invalid @enderror" 
+                                    id="anggaran_kegiatan_id" 
+                                    name="anggaran_kegiatan_id" 
+                                    required>
+                                <option value="">-- Pilih Kegiatan --</option>
+                                @foreach($anggaranList as $anggaran)
+                                    <option value="{{ $anggaran->id }}" 
+                                            data-kode="{{ $anggaran->kode_kegiatan }}"
+                                            data-anggaran="{{ $anggaran->anggaran_disetujui }}"
+                                            data-sisa="{{ $anggaran->sisa_anggaran }}"
+                                            {{ old('anggaran_kegiatan_id') == $anggaran->id ? 'selected' : '' }}>
+                                        {{ $anggaran->kode_kegiatan }} - {{ $anggaran->nama_kegiatan }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            @error('anggaran_kegiatan_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div id="kegiatanInfo" style="display: none;">
@@ -71,28 +110,42 @@
                                 <div class="input-group-prepend">
                                     <span class="input-group-text">Rp</span>
                                 </div>
-                                <input type="text" class="form-control" id="jumlah_pencairan" name="jumlah_pencairan" 
-                                       placeholder="0" required>
+                                <input type="text" 
+                                       class="form-control @error('jumlah_pencairan') is-invalid @enderror" 
+                                       id="jumlah_pencairan" 
+                                       name="jumlah_pencairan" 
+                                       value="{{ old('jumlah_pencairan') }}"
+                                       placeholder="0" 
+                                       required>
+                                @error('jumlah_pencairan')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
                             <small class="form-text text-muted">Jumlah yang akan dicairkan dari anggaran kegiatan</small>
-                            <div class="invalid-feedback"></div>
                         </div>
 
                         <div class="form-group">
                             <label for="keperluan">Keperluan / Keterangan <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="keperluan" name="keperluan" rows="5" 
-                                      placeholder="Jelaskan keperluan pencairan dana ini..." required></textarea>
+                            <textarea class="form-control @error('keperluan') is-invalid @enderror" 
+                                      id="keperluan" 
+                                      name="keperluan" 
+                                      rows="5" 
+                                      placeholder="Jelaskan keperluan pencairan dana ini..." 
+                                      required>{{ old('keperluan') }}</textarea>
                             <small class="form-text text-muted">Maksimal 1000 karakter</small>
-                            <div class="invalid-feedback"></div>
+                            @error('keperluan')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <hr>
 
                         <div class="form-group mb-0">
-                            <button type="submit" class="btn btn-primary" id="btnSubmit">
+                            <button type="submit" name="action" value="draft" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Simpan sebagai Draft
                             </button>
-                            <button type="button" class="btn btn-success" id="btnSubmitApproval" style="display: none;">
+                            <button type="submit" name="action" value="submit" class="btn btn-success"
+                                    onclick="return confirm('Apakah Anda yakin ingin menyimpan dan langsung mengajukan pencairan dana ini untuk disetujui?')">
                                 <i class="fas fa-paper-plane"></i> Simpan & Ajukan
                             </button>
                             <a href="{{ route('pencairan-dana.index') }}" class="btn btn-secondary">
@@ -133,77 +186,41 @@
                     </ul>
                 </div>
             </div>
+
+            <!-- Available Budget Card -->
+            @if($anggaranList->count() > 0)
+            <div class="card shadow mb-4">
+                <div class="card-header py-3">
+                    <h6 class="m-0 font-weight-bold text-success">
+                        <i class="fas fa-check-circle"></i> Kegiatan Tersedia
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">Total kegiatan yang dapat diajukan pencairan:</p>
+                    <h3 class="text-success mb-0">{{ $anggaranList->count() }}</h3>
+                </div>
+            </div>
+            @else
+            <div class="card shadow mb-4 border-warning">
+                <div class="card-header py-3 bg-warning">
+                    <h6 class="m-0 font-weight-bold text-white">
+                        <i class="fas fa-exclamation-triangle"></i> Perhatian
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">Tidak ada kegiatan yang tersedia untuk pencairan dana. Pastikan ada kegiatan dengan status <strong>Disetujui Kepala JIC</strong> dan masih memiliki sisa anggaran.</p>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 </div>
-
-<!-- Modal Pilih Kegiatan -->
-<div class="modal fade" id="kegiatanModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Pilih Kegiatan</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <input type="text" class="form-control" id="searchKegiatan" placeholder="Cari kegiatan...">
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="thead-light">
-                            <tr>
-                                <th>Kode</th>
-                                <th>Nama Kegiatan</th>
-                                <th>Anggaran</th>
-                                <th>Sisa</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="kegiatanList">
-                            <tr>
-                                <td colspan="5" class="text-center">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="sr-only">Loading...</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @endsection
 
 @push('scripts')
 <script>
 $(document).ready(function() {
-    let submitAndApprove = false;
-    let selectedKegiatan = null;
     let sisaAnggaran = 0;
-
-    // Check if anggaran_id from URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    const anggaranIdParam = urlParams.get('anggaran_id');
-    
-    if (anggaranIdParam) {
-        // Check token before attempting to load
-        const token = getToken();
-        if (!token) {
-            showAlert('error', 'Anda belum login atau session sudah kadaluarsa. Silakan login kembali.');
-            setTimeout(() => window.location.href = '/login', 2000);
-        } else {
-            loadKegiatanDetail(anggaranIdParam);
-        }
-    }
 
     // Format currency input
     $('#jumlah_pencairan').on('keyup', function() {
@@ -212,290 +229,53 @@ $(document).ready(function() {
         
         // Check if exceeds sisa anggaran
         const jumlah = parseFloat(value);
-        if (jumlah > sisaAnggaran) {
+        if (sisaAnggaran > 0 && jumlah > sisaAnggaran) {
             $(this).addClass('is-invalid');
-            $(this).siblings('.invalid-feedback').text(`Jumlah melebihi sisa anggaran (${formatRupiah(sisaAnggaran)})`);
+            let feedbackDiv = $(this).siblings('.invalid-feedback');
+            if (feedbackDiv.length === 0) {
+                feedbackDiv = $('<div class="invalid-feedback"></div>');
+                $(this).after(feedbackDiv);
+            }
+            feedbackDiv.text(`Jumlah melebihi sisa anggaran (${formatRupiah(sisaAnggaran)})`);
         } else {
             $(this).removeClass('is-invalid');
-            $(this).siblings('.invalid-feedback').text('');
-        }
-    });
-
-    // Show/hide submit for approval button
-    $('#formPencairanDana input, #formPencairanDana textarea').on('input', function() {
-        if (isFormValid()) {
-            $('#btnSubmitApproval').show();
-        } else {
-            $('#btnSubmitApproval').hide();
-        }
-    });
-
-    // Show kegiatan modal
-    $('#btnPilihKegiatan').on('click', function() {
-        loadKegiatanList();
-        $('#kegiatanModal').modal('show');
-    });
-
-    // Search kegiatan
-    let searchKegiatanTimeout;
-    $('#searchKegiatan').on('keyup', function() {
-        clearTimeout(searchKegiatanTimeout);
-        searchKegiatanTimeout = setTimeout(function() {
-            loadKegiatanList();
-        }, 500);
-    });
-
-    // Load kegiatan list
-    function loadKegiatanList() {
-        const search = $('#searchKegiatan').val();
-        const token = getToken();
-
-        // Check if token exists
-        if (!token) {
-            showAlert('error', 'Anda belum login atau session sudah kadaluarsa. Silakan login kembali.');
-            setTimeout(() => window.location.href = '/login', 2000);
-            return;
-        }
-
-        $.ajax({
-            url: '/api/anggaran-kegiatan',
-            method: 'GET',
-            data: {
-                status: 'disetujui_kepala_jic',
-                search: search,
-                per_page: 100
-            },
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-            },
-            success: function(response) {
-                if (response.success) {
-                    renderKegiatanList(response.data.data);
-                }
-            },
-            error: function(xhr) {
-                console.error('Error loading kegiatan:', xhr);
-                
-                if (xhr.status === 401) {
-                    showAlert('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
-                    setTimeout(() => window.location.href = '/login', 2000);
-                } else if (xhr.status === 403) {
-                    showAlert('error', 'Anda tidak memiliki akses ke data ini');
-                } else {
-                    showAlert('error', 'Gagal memuat data kegiatan');
-                }
-                
-                $('#kegiatanList').html('<tr><td colspan="5" class="text-center text-danger">Gagal memuat data kegiatan</td></tr>');
+            if (!$(this).hasClass('is-invalid')) {
+                $(this).siblings('.invalid-feedback:not(.d-block)').text('');
             }
-        });
-    }
-
-    // Render kegiatan list
-    function renderKegiatanList(data) {
-        let html = '';
-        if (data.length === 0) {
-            html = '<tr><td colspan="5" class="text-center">Tidak ada kegiatan yang disetujui</td></tr>';
-        } else {
-            data.forEach(function(item) {
-                const sisaAnggaran = item.sisa_anggaran || item.anggaran_disetujui;
-                
-                html += `
-                    <tr>
-                        <td>${item.kode_kegiatan}</td>
-                        <td>${item.nama_kegiatan}</td>
-                        <td>${formatRupiah(item.anggaran_disetujui)}</td>
-                        <td class="font-weight-bold text-success">${formatRupiah(sisaAnggaran)}</td>
-                        <td>
-                            <button class="btn btn-sm btn-primary btn-select-kegiatan" 
-                                    data-id="${item.id}">
-                                <i class="fas fa-check"></i> Pilih
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
         }
-        $('#kegiatanList').html(html);
-    }
-
-    // Select kegiatan
-    $(document).on('click', '.btn-select-kegiatan', function() {
-        const kegiatanId = $(this).data('id');
-        loadKegiatanDetail(kegiatanId);
-        $('#kegiatanModal').modal('hide');
     });
 
-    // Load kegiatan detail
-    function loadKegiatanDetail(kegiatanId) {
-        const token = getToken();
-
-        // Check if token exists
-        if (!token) {
-            showAlert('error', 'Anda belum login atau session sudah kadaluarsa. Silakan login kembali.');
-            setTimeout(() => window.location.href = '/login', 2000);
-            return;
-        }
-
-        $.ajax({
-            url: `/api/anggaran-kegiatan/${kegiatanId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + token,
-                'Content-Type': 'application/json'
-            },
-            success: function(response) {
-                if (response.success) {
-                    selectedKegiatan = response.data;
-                    sisaAnggaran = response.data.sisa_anggaran || response.data.anggaran_disetujui;
-                    
-                    $('#anggaran_kegiatan_id').val(selectedKegiatan.id);
-                    $('#kegiatan_display').val(`${selectedKegiatan.kode_kegiatan} - ${selectedKegiatan.nama_kegiatan}`);
-                    
-                    $('#info_kode').text(selectedKegiatan.kode_kegiatan);
-                    $('#info_total_anggaran').text(formatRupiah(selectedKegiatan.anggaran_disetujui));
-                    $('#info_total_pencairan').text(formatRupiah(response.data.total_pencairan || 0));
-                    $('#info_sisa_anggaran').text(formatRupiah(sisaAnggaran));
-                    
-                    $('#kegiatanInfo').show();
-                }
-            },
-            error: function(xhr) {
-                if (xhr.status === 401) {
-                    showAlert('error', 'Sesi Anda telah berakhir. Silakan login kembali.');
-                    setTimeout(() => window.location.href = '/login', 2000);
-                } else if (xhr.status === 403) {
-                    showAlert('error', 'Anda tidak memiliki akses ke data ini');
-                } else {
-                    showAlert('error', 'Gagal memuat detail kegiatan');
-                }
-            }
-        });
-    }
-
-    // Submit as draft
-    $('#btnSubmit').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = false;
-        submitForm();
-    });
-
-    // Submit and request approval
-    $('#btnSubmitApproval').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = true;
+    // Handle kegiatan selection
+    $('#anggaran_kegiatan_id').on('change', function() {
+        const selected = $(this).find('option:selected');
         
-        if (confirm('Apakah Anda yakin ingin menyimpan dan langsung mengajukan pencairan dana ini untuk disetujui?')) {
-            submitForm();
+        if (selected.val()) {
+            const kode = selected.data('kode');
+            const totalAnggaran = selected.data('anggaran');
+            sisaAnggaran = selected.data('sisa');
+            const totalPencairan = totalAnggaran - sisaAnggaran;
+            
+            $('#info_kode').text(kode);
+            $('#info_total_anggaran').text(formatRupiah(totalAnggaran));
+            $('#info_total_pencairan').text(formatRupiah(totalPencairan));
+            $('#info_sisa_anggaran').text(formatRupiah(sisaAnggaran));
+            
+            $('#kegiatanInfo').slideDown();
+            
+            // Revalidate jumlah pencairan if already filled
+            if ($('#jumlah_pencairan').val()) {
+                $('#jumlah_pencairan').trigger('keyup');
+            }
+        } else {
+            $('#kegiatanInfo').slideUp();
+            sisaAnggaran = 0;
         }
     });
 
-    function submitForm() {
-        // Clear previous errors
-        $('.form-control').removeClass('is-invalid');
-        $('.invalid-feedback').text('');
-
-        // Validate
-        if (!$('#anggaran_kegiatan_id').val()) {
-            showAlert('error', 'Silakan pilih kegiatan terlebih dahulu');
-            return;
-        }
-
-        const jumlahPencairan = parseFloat($('#jumlah_pencairan').val().replace(/[^0-9]/g, ''));
-        if (jumlahPencairan > sisaAnggaran) {
-            showAlert('error', 'Jumlah pencairan melebihi sisa anggaran');
-            return;
-        }
-
-        // Disable submit buttons
-        $('#btnSubmit, #btnSubmitApproval').prop('disabled', true);
-        $('#btnSubmit').html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-        $('#btnSubmitApproval').html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-
-        // Prepare data
-        const formData = {
-            anggaran_kegiatan_id: parseInt($('#anggaran_kegiatan_id').val()),
-            jumlah_pencairan: jumlahPencairan,
-            keperluan: $('#keperluan').val()
-        };
-
-        // Create pencairan dana
-        $.ajax({
-            url: '/api/pencairan-dana',
-            method: 'POST',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                'Authorization': 'Bearer ' + getToken(),
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
-                if (response.success) {
-                    // If submit and approve, call submit endpoint
-                    if (submitAndApprove) {
-                        submitForApproval(response.data.id);
-                    } else {
-                        showAlert('success', response.message);
-                        setTimeout(function() {
-                            window.location.href = '/pencairan-dana';
-                        }, 1500);
-                    }
-                }
-            },
-            error: function(xhr) {
-                // Enable submit buttons
-                $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-save"></i> Simpan sebagai Draft');
-                $('#btnSubmitApproval').prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Simpan & Ajukan');
-
-                if (xhr.status === 422) {
-                    // Validation errors
-                    const errors = xhr.responseJSON.errors;
-                    for (let field in errors) {
-                        $(`#${field}`).addClass('is-invalid');
-                        $(`#${field}`).siblings('.invalid-feedback').text(errors[field][0]);
-                    }
-                    showAlert('error', 'Terdapat kesalahan pada form. Silakan periksa kembali.');
-                } else {
-                    const message = xhr.responseJSON?.message || 'Gagal menyimpan pencairan dana';
-                    showAlert('error', message);
-                }
-            }
-        });
-    }
-
-    function submitForApproval(id) {
-        $.ajax({
-            url: `/api/pencairan-dana/${id}/submit`,
-            method: 'POST',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                if (response.success) {
-                    showAlert('success', 'Pencairan dana berhasil disimpan dan diajukan untuk persetujuan');
-                    setTimeout(function() {
-                        window.location.href = '/pencairan-dana';
-                    }, 1500);
-                }
-            },
-            error: function(xhr) {
-                const message = xhr.responseJSON?.message || 'Pencairan dana berhasil disimpan, namun gagal diajukan';
-                showAlert('warning', message);
-                setTimeout(function() {
-                    window.location.href = '/pencairan-dana';
-                }, 2000);
-            }
-        });
-    }
-
-    function isFormValid() {
-        const kegiatanId = $('#anggaran_kegiatan_id').val();
-        const jumlah = $('#jumlah_pencairan').val().replace(/[^0-9]/g, '');
-        const keperluan = $('#keperluan').val().trim();
-
-        return kegiatanId && jumlah && keperluan && parseFloat(jumlah) <= sisaAnggaran;
-    }
+    // Trigger change if there's old value
+    @if(old('anggaran_kegiatan_id'))
+        $('#anggaran_kegiatan_id').trigger('change');
+    @endif
 
     // Helper: Format number with thousand separator
     function formatNumber(num) {
@@ -507,29 +287,12 @@ $(document).ready(function() {
         return 'Rp ' + new Intl.NumberFormat('id-ID').format(amount);
     }
 
-    // Helper: Show alert
-    function showAlert(type, message) {
-        let alertClass = 'alert-info';
-        if (type === 'success') alertClass = 'alert-success';
-        if (type === 'error') alertClass = 'alert-danger';
-        if (type === 'warning') alertClass = 'alert-warning';
-
-        const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span>&times;</span>
-                </button>
-            </div>
-        `;
-        $('#alertContainer').html(alertHtml);
-        
-        setTimeout(function() {
-            $('.alert').fadeOut('slow', function() {
-                $(this).remove();
-            });
-        }, 5000);
-    }
+    // Auto dismiss alerts after 5 seconds
+    setTimeout(function() {
+        $('.alert').fadeOut('slow', function() {
+            $(this).remove();
+        });
+    }, 5000);
 });
 </script>
 @endpush
