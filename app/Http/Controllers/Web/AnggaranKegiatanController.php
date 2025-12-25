@@ -413,7 +413,7 @@ class AnggaranKegiatanController extends Controller
      */
     public function edit($id)
     {
-        $anggaran = AnggaranKegiatan::findOrFail($id);
+        $anggaran = AnggaranKegiatan::with(['creator', 'approver'])->findOrFail($id);
 
         // Check permission - only staff or admin can edit
         $userRoles = Session::get('user_roles', []);
@@ -450,11 +450,11 @@ class AnggaranKegiatanController extends Controller
         
         if ($anggaran->created_by === auth()->id()) {
             if (!in_array('staff', $userRoles) && !count(array_intersect($userRoles, ['super_admin', 'admin']))) {
-                abort(403);
+                abort(403, 'Anda tidak memiliki akses untuk mengedit anggaran kegiatan ini');
             }
         } else {
             if (!count(array_intersect($userRoles, ['super_admin', 'admin']))) {
-                abort(403);
+                abort(403, 'Anda tidak memiliki akses untuk mengedit anggaran kegiatan ini');
             }
         }
 
@@ -464,36 +464,72 @@ class AnggaranKegiatanController extends Controller
                 ->with('error', 'Tidak dapat mengedit anggaran kegiatan dengan status: ' . $anggaran->status);
         }
 
-        $request->validate([
+        // Clean anggaran_disetujui from currency format
+        $anggaranDisetujui = str_replace('.', '', $request->anggaran_disetujui);
+
+        $request->merge([
+            'anggaran_disetujui' => $anggaranDisetujui
+        ]);
+
+        $validated = $request->validate([
             'nama_kegiatan' => 'required|string|max:255',
             'deskripsi' => 'nullable|string',
             'anggaran_disetujui' => 'required|numeric|min:0',
             'tanggal_mulai' => 'required|date',
             'tanggal_selesai' => 'required|date|after_or_equal:tanggal_mulai',
+        ], [
+            'nama_kegiatan.required' => 'Nama kegiatan wajib diisi',
+            'nama_kegiatan.max' => 'Nama kegiatan maksimal 255 karakter',
+            'anggaran_disetujui.required' => 'Anggaran wajib diisi',
+            'anggaran_disetujui.numeric' => 'Anggaran harus berupa angka',
+            'anggaran_disetujui.min' => 'Anggaran harus lebih dari atau sama dengan 0',
+            'tanggal_mulai.required' => 'Tanggal mulai wajib diisi',
+            'tanggal_mulai.date' => 'Format tanggal mulai tidak valid',
+            'tanggal_selesai.required' => 'Tanggal selesai wajib diisi',
+            'tanggal_selesai.date' => 'Format tanggal selesai tidak valid',
+            'tanggal_selesai.after_or_equal' => 'Tanggal selesai harus setelah atau sama dengan tanggal mulai',
         ]);
 
         try {
-            $updateData = $request->only([
-                'nama_kegiatan',
-                'deskripsi',
-                'anggaran_disetujui',
-                'tanggal_mulai',
-                'tanggal_selesai'
-            ]);
+            DB::beginTransaction();
 
-            // Reset status to draft if it was rejected
-            if ($anggaran->status === 'ditolak') {
-                $updateData['status'] = 'draft';
+            $updateData = [
+                'nama_kegiatan' => $validated['nama_kegiatan'],
+                'deskripsi' => $validated['deskripsi'],
+                'anggaran_disetujui' => $validated['anggaran_disetujui'],
+                'tanggal_mulai' => $validated['tanggal_mulai'],
+                'tanggal_selesai' => $validated['tanggal_selesai'],
+            ];
+
+            // Get submit action
+            $submitAction = $request->input('submit_action', 'save');
+
+            // If submit action is 'submit', change status to 'diajukan'
+            if ($submitAction === 'submit') {
+                $updateData['status'] = 'diajukan';
                 $updateData['catatan'] = null;
+                $message = 'Anggaran kegiatan berhasil diperbarui dan diajukan untuk persetujuan';
+            } else {
+                // Reset status to draft if it was rejected
+                if ($anggaran->status === 'ditolak') {
+                    $updateData['status'] = 'draft';
+                    $updateData['catatan'] = null;
+                }
+                $message = 'Anggaran kegiatan berhasil diperbarui';
             }
 
             $anggaran->update($updateData);
 
+            DB::commit();
+
             return redirect()->route('anggaran-kegiatan.show', $anggaran->id)
-                ->with('success', 'Anggaran kegiatan berhasil diperbarui');
+                ->with('success', $message);
 
         } catch (\Exception $e) {
-            return back()->withErrors(['error' => 'Gagal memperbarui anggaran kegiatan: ' . $e->getMessage()])
+            DB::rollBack();
+            
+            return back()
+                ->withErrors(['error' => 'Gagal memperbarui anggaran kegiatan: ' . $e->getMessage()])
                 ->withInput();
         }
     }
