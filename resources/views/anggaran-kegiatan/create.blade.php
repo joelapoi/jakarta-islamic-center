@@ -2,12 +2,63 @@
 
 @section('content')
 <div class="container-fluid">
+    <!-- Success/Error Messages -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Terdapat kesalahan pada form:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Tambah Anggaran Kegiatan</h1>
-        <a href="{{ route('anggaran-kegiatan.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Kembali
-        </a>
+        <div>
+            <form action="{{ route('anggaran-kegiatan.cancel-draft', $anggaran->id) }}" method="POST" class="d-inline"
+                  onsubmit="return confirm('Apakah Anda yakin ingin membatalkan draft ini?')">
+                @csrf
+                @method('DELETE')
+                <button type="submit" class="btn btn-danger">
+                    <i class="fas fa-times"></i> Batalkan Draft
+                </button>
+            </form>
+            <a href="{{ route('anggaran-kegiatan.index') }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Kembali
+            </a>
+        </div>
+    </div>
+
+    <!-- Draft Info Alert -->
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle"></i> 
+        <strong>Draft dibuat:</strong> Kode Kegiatan <strong>{{ $anggaran->kode_kegiatan }}</strong>
+        <br>
+        <small>Draft akan otomatis tersimpan. Anda dapat melanjutkan pengisian nanti.</small>
     </div>
 
     <!-- Form Card -->
@@ -18,19 +69,49 @@
                     <h6 class="m-0 font-weight-bold text-primary">Form Anggaran Kegiatan</h6>
                 </div>
                 <div class="card-body">
-                    <form id="formAnggaranKegiatan">
+                    <form action="{{ route('anggaran-kegiatan.store') }}" method="POST" id="formAnggaranKegiatan">
+                        @csrf
+                        
+                        {{-- Hidden field untuk anggaran_id --}}
+                        <input type="hidden" name="anggaran_id" value="{{ $anggaran->id }}">
+                        
+                        {{-- Hidden field untuk submit action --}}
+                        <input type="hidden" name="submit_action" id="submit_action" value="draft">
+                        
+                        <div class="form-group">
+                            <label for="kode_kegiatan">Kode Kegiatan</label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="kode_kegiatan" 
+                                   value="{{ $anggaran->kode_kegiatan }}"
+                                   disabled>
+                            <small class="form-text text-muted">Kode kegiatan dibuat otomatis</small>
+                        </div>
+
                         <div class="form-group">
                             <label for="nama_kegiatan">Nama Kegiatan <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="nama_kegiatan" name="nama_kegiatan" 
-                                   placeholder="Masukkan nama kegiatan" required>
-                            <div class="invalid-feedback"></div>
+                            <input type="text" 
+                                   class="form-control @error('nama_kegiatan') is-invalid @enderror" 
+                                   id="nama_kegiatan" 
+                                   name="nama_kegiatan" 
+                                   value="{{ old('nama_kegiatan', strpos($anggaran->nama_kegiatan, 'Draft - ') === 0 ? '' : $anggaran->nama_kegiatan) }}"
+                                   placeholder="Masukkan nama kegiatan" 
+                                   required>
+                            @error('nama_kegiatan')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div class="form-group">
                             <label for="deskripsi">Deskripsi Kegiatan</label>
-                            <textarea class="form-control" id="deskripsi" name="deskripsi" rows="4" 
-                                      placeholder="Deskripsi singkat tentang kegiatan"></textarea>
-                            <div class="invalid-feedback"></div>
+                            <textarea class="form-control @error('deskripsi') is-invalid @enderror" 
+                                      id="deskripsi" 
+                                      name="deskripsi" 
+                                      rows="4" 
+                                      placeholder="Deskripsi singkat tentang kegiatan">{{ old('deskripsi', $anggaran->deskripsi) }}</textarea>
+                            @error('deskripsi')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div class="form-group">
@@ -39,26 +120,47 @@
                                 <div class="input-group-prepend">
                                     <span class="input-group-text">Rp</span>
                                 </div>
-                                <input type="text" class="form-control" id="anggaran_disetujui" name="anggaran_disetujui" 
-                                       placeholder="0" required>
+                                <input type="text" 
+                                       class="form-control @error('anggaran_disetujui') is-invalid @enderror" 
+                                       id="anggaran_disetujui" 
+                                       name="anggaran_disetujui" 
+                                       value="{{ old('anggaran_disetujui', $anggaran->anggaran_disetujui > 0 ? number_format($anggaran->anggaran_disetujui, 0, ',', '.') : '') }}"
+                                       placeholder="0" 
+                                       required>
+                                @error('anggaran_disetujui')
+                                    <div class="invalid-feedback">{{ $message }}</div>
+                                @enderror
                             </div>
                             <small class="form-text text-muted">Masukkan nominal anggaran yang dibutuhkan</small>
-                            <div class="invalid-feedback"></div>
                         </div>
 
                         <div class="row">
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="tanggal_mulai">Tanggal Mulai <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control" id="tanggal_mulai" name="tanggal_mulai" required>
-                                    <div class="invalid-feedback"></div>
+                                    <input type="date" 
+                                           class="form-control @error('tanggal_mulai') is-invalid @enderror" 
+                                           id="tanggal_mulai" 
+                                           name="tanggal_mulai" 
+                                           value="{{ old('tanggal_mulai', $anggaran->tanggal_mulai) }}"
+                                           required>
+                                    @error('tanggal_mulai')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
                                     <label for="tanggal_selesai">Tanggal Selesai <span class="text-danger">*</span></label>
-                                    <input type="date" class="form-control" id="tanggal_selesai" name="tanggal_selesai" required>
-                                    <div class="invalid-feedback"></div>
+                                    <input type="date" 
+                                           class="form-control @error('tanggal_selesai') is-invalid @enderror" 
+                                           id="tanggal_selesai" 
+                                           name="tanggal_selesai" 
+                                           value="{{ old('tanggal_selesai', $anggaran->tanggal_selesai) }}"
+                                           required>
+                                    @error('tanggal_selesai')
+                                        <div class="invalid-feedback">{{ $message }}</div>
+                                    @enderror
                                 </div>
                             </div>
                         </div>
@@ -66,14 +168,18 @@
                         <hr>
 
                         <div class="form-group mb-0">
-                            <button type="submit" class="btn btn-primary" id="btnSubmit">
-                                <i class="fas fa-save"></i> Simpan sebagai Draft
+                            {{-- Button Simpan Draft --}}
+                            <button type="submit" class="btn btn-primary" id="btnSaveDraft">
+                                <i class="fas fa-save"></i> Simpan Draft
                             </button>
-                            <button type="button" class="btn btn-success" id="btnSubmitApproval" style="display: none;">
+                            
+                            {{-- Button Simpan & Ajukan --}}
+                            <button type="button" class="btn btn-success" id="btnSaveAndSubmit">
                                 <i class="fas fa-paper-plane"></i> Simpan & Ajukan
                             </button>
+                            
                             <a href="{{ route('anggaran-kegiatan.index') }}" class="btn btn-secondary">
-                                <i class="fas fa-times"></i> Batal
+                                <i class="fas fa-arrow-left"></i> Kembali ke Daftar
                             </a>
                         </div>
                     </form>
@@ -90,9 +196,14 @@
                     </h6>
                 </div>
                 <div class="card-body">
+                    <h6 class="font-weight-bold">Status Saat Ini:</h6>
+                    <span class="badge badge-secondary badge-lg">{{ strtoupper($anggaran->status) }}</span>
+                    
+                    <hr>
+                    
                     <h6 class="font-weight-bold">Alur Persetujuan:</h6>
                     <ol class="pl-3">
-                        <li>Draft dibuat</li>
+                        <li><strong>Draft dibuat</strong> (Anda di sini)</li>
                         <li>Diajukan untuk persetujuan</li>
                         <li>Disetujui Kadiv</li>
                         <li>Disetujui Kadiv Umum</li>
@@ -103,8 +214,9 @@
                     
                     <h6 class="font-weight-bold">Catatan:</h6>
                     <ul class="pl-3 mb-0">
-                        <li>Pastikan semua data terisi dengan benar</li>
-                        <li>Anggaran harus sesuai dengan proposal kegiatan</li>
+                        <li><strong>Simpan Draft:</strong> Data tersimpan sebagai draft, dapat diedit lagi nanti</li>
+                        <li><strong>Simpan & Ajukan:</strong> Data langsung diajukan untuk persetujuan</li>
+                        <li>Pastikan semua data terisi dengan benar sebelum mengajukan</li>
                         <li>Tanggal selesai harus setelah tanggal mulai</li>
                         <li>Setelah diajukan, data tidak dapat diubah kecuali ditolak</li>
                     </ul>
@@ -118,7 +230,12 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    let submitAndApprove = false;
+    // Auto-hide alerts after 5 seconds
+    setTimeout(function() {
+        $('.alert:not(.alert-info)').fadeOut('slow', function() {
+            $(this).remove();
+        });
+    }, 5000);
 
     // Format currency input
     $('#anggaran_disetujui').on('keyup', function() {
@@ -142,154 +259,33 @@ $(document).ready(function() {
         }
     });
 
-    // Show/hide submit for approval button
-    $('#formAnggaranKegiatan input, #formAnggaranKegiatan textarea').on('input', function() {
-        if (isFormValid()) {
-            $('#btnSubmitApproval').show();
-        } else {
-            $('#btnSubmitApproval').hide();
-        }
-    });
-
-    // Submit as draft
-    $('#btnSubmit').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = false;
-        submitForm();
-    });
-
-    // Submit and request approval
-    $('#btnSubmitApproval').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = true;
-        
-        if (confirm('Apakah Anda yakin ingin menyimpan dan langsung mengajukan anggaran kegiatan ini untuk disetujui?')) {
-            submitForm();
-        }
-    });
-
-    function submitForm() {
-        // Clear previous errors
-        $('.form-control').removeClass('is-invalid');
-        $('.invalid-feedback').text('');
-
-        // Disable submit buttons
-        $('#btnSubmit, #btnSubmitApproval').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-
-        // Prepare data
-        const formData = {
-            nama_kegiatan: $('#nama_kegiatan').val(),
-            deskripsi: $('#deskripsi').val(),
-            anggaran_disetujui: parseFloat($('#anggaran_disetujui').val().replace(/[^0-9]/g, '')),
-            tanggal_mulai: $('#tanggal_mulai').val(),
-            tanggal_selesai: $('#tanggal_selesai').val()
-        };
-
-        // Create anggaran kegiatan
-        $.ajax({
-            url: '/api/anggaran-kegiatan',
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + getToken(),
-                //'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
-                if (response.success) {
-                    // If submit and approve, call submit endpoint
-                    if (submitAndApprove) {
-                        submitForApproval(response.data.id);
-                    } else {
-                        showAlert('success', 'Anggaran kegiatan berhasil disimpan sebagai draft');
-                        setTimeout(function() {
-                            window.location.href = '/anggaran-kegiatan';
-                        }, 1500);
-                    }
-                }
-            },
-            error: function(xhr) {
-                // Enable submit buttons
-                $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-save"></i> Simpan sebagai Draft');
-                $('#btnSubmitApproval').prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Simpan & Ajukan');
-
-                if (xhr.status === 422) {
-                    // Validation errors
-                    const errors = xhr.responseJSON.errors;
-                    for (let field in errors) {
-                        $(`#${field}`).addClass('is-invalid');
-                        $(`#${field}`).siblings('.invalid-feedback').text(errors[field][0]);
-                    }
-                    showAlert('error', 'Terdapat kesalahan pada form. Silakan periksa kembali.');
-                } else {
-                    const message = xhr.responseJSON?.message || 'Gagal menyimpan anggaran kegiatan';
-                    showAlert('error', message);
-                }
-            }
-        });
-    }
-
-    function submitForApproval(id) {
-        $.ajax({
-            url: `/api/anggaran-kegiatan/${id}/submit`,
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                if (response.success) {
-                    showAlert('success', 'Anggaran kegiatan berhasil disimpan dan diajukan');
-                    setTimeout(function() {
-                        window.location.href = '/anggaran-kegiatan';
-                    }, 1500);
-                }
-            },
-            error: function(xhr) {
-                showAlert('success', 'Anggaran kegiatan berhasil disimpan sebagai draft');
-                setTimeout(function() {
-                    window.location.href = '/anggaran-kegiatan';
-                }, 1500);
-            }
-        });
-    }
-
-    function isFormValid() {
-        const namaKegiatan = $('#nama_kegiatan').val().trim();
-        const anggaran = $('#anggaran_disetujui').val().replace(/[^0-9]/g, '');
-        const tanggalMulai = $('#tanggal_mulai').val();
-        const tanggalSelesai = $('#tanggal_selesai').val();
-
-        return namaKegiatan && anggaran && tanggalMulai && tanggalSelesai;
-    }
-
-    // Helper: Format number with thousand separator
+    // Format number with thousand separator
     function formatNumber(num) {
         return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
     }
 
-    // Helper: Show alert
-    function showAlert(type, message) {
-        let alertClass = 'alert-info';
-        if (type === 'success') alertClass = 'alert-success';
-        if (type === 'error') alertClass = 'alert-danger';
-        if (type === 'warning') alertClass = 'alert-warning';
+    // Button Simpan Draft - submit as draft
+    $('#btnSaveDraft').on('click', function() {
+        $('#submit_action').val('draft');
+        $('#btnSaveDraft').prop('disabled', true)
+                         .html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
+    });
 
-        const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span>&times;</span>
-                </button>
-            </div>
-        `;
-        $('.container-fluid').prepend(alertHtml);
-        
-        setTimeout(function() {
-            $('.alert').fadeOut('slow', function() {
-                $(this).remove();
-            });
-        }, 5000);
-    }
+    // Button Simpan & Ajukan - submit and request approval
+    $('#btnSaveAndSubmit').on('click', function() {
+        if (confirm('Apakah Anda yakin ingin menyimpan dan langsung mengajukan anggaran kegiatan ini untuk disetujui?')) {
+            $('#submit_action').val('submit');
+            $('#btnSaveAndSubmit').prop('disabled', true)
+                                  .html('<i class="fas fa-spinner fa-spin"></i> Menyimpan & Mengajukan...');
+            $('#formAnggaranKegiatan').submit();
+        }
+    });
+
+    // Handle form submit
+    $('#formAnggaranKegiatan').on('submit', function() {
+        // Disable all buttons to prevent double submit
+        $('#btnSaveDraft, #btnSaveAndSubmit').prop('disabled', true);
+    });
 });
 </script>
 @endpush

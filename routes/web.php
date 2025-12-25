@@ -82,6 +82,7 @@ Route::middleware(['auth'])->group(function () {
     */
     Route::resource('anggaran-kegiatan', AnggaranKegiatanController::class);
     Route::prefix('anggaran-kegiatan')->name('anggaran-kegiatan.')->group(function () {
+        Route::delete('{id}/cancel-draft', [AnggaranKegiatanController::class, 'cancelDraft'])->name('cancel-draft');
         Route::post('{anggaranKegiatan}/submit', [AnggaranKegiatanController::class, 'submit'])->name('submit');
         Route::get('{anggaranKegiatan}/timeline', [AnggaranKegiatanController::class, 'timeline'])->name('timeline');
         
