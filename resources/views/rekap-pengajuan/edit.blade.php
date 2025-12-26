@@ -6,17 +6,56 @@
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Edit Rekap Pengajuan</h1>
         <div>
-            <a href="/rekap-pengajuan/{{ $id }}" class="btn btn-info">
+            <a href="{{ route('rekap-pengajuan.show', $rekap->id) }}" class="btn btn-info">
                 <i class="fas fa-eye"></i> Lihat Detail
             </a>
-            <a href="{{ route('view.rekap-pengajuan.index') }}" class="btn btn-secondary">
+            <a href="{{ route('rekap-pengajuan.index') }}" class="btn btn-secondary">
                 <i class="fas fa-arrow-left"></i> Kembali
             </a>
         </div>
     </div>
 
-    <!-- Alert Container -->
-    <div id="alertContainer"></div>
+    <!-- Alert Messages -->
+    @if(session('success'))
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            {{ session('success') }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if(session('error'))
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            {{ session('error') }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if(session('warning'))
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+            {{ session('warning') }}
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
+
+    @if($errors->any())
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <strong>Terdapat kesalahan:</strong>
+            <ul class="mb-0 mt-2">
+                @foreach($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+            <button type="button" class="close" data-dismiss="alert">
+                <span>&times;</span>
+            </button>
+        </div>
+    @endif
 
     <!-- Form Card -->
     <div class="row">
@@ -26,38 +65,41 @@
                     <h6 class="m-0 font-weight-bold text-primary">Form Edit Rekap Pengajuan</h6>
                 </div>
                 <div class="card-body">
-                    <form id="formRekapPengajuan">
+                    <form action="{{ route('rekap-pengajuan.update', $rekap->id) }}" method="POST" id="formRekapPengajuan">
+                        @csrf
+                        @method('PUT')
+
                         <div class="form-group">
                             <label>Nomor Rekap</label>
-                            <input type="text" class="form-control" id="nomor_rekap" readonly>
+                            <input type="text" class="form-control" value="{{ $rekap->nomor_rekap }}" readonly>
                         </div>
 
                         <div class="form-group">
                             <label>Pencairan Dana</label>
-                            <input type="text" class="form-control" id="pencairan_display" readonly>
+                            <input type="text" class="form-control" value="{{ $rekap->pencairanDana->nomor_pencairan }}" readonly>
                         </div>
 
-                        <div id="pencairanInfo">
-                            <div class="alert alert-info">
-                                <h6 class="font-weight-bold mb-2">Informasi Pencairan Dana:</h6>
-                                <table class="table table-borderless table-sm mb-0">
-                                    <tr>
-                                        <td width="40%">Nomor Pencairan</td>
-                                        <td width="5%">:</td>
-                                        <td id="info_nomor">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Kegiatan</td>
-                                        <td>:</td>
-                                        <td id="info_kegiatan">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-weight-bold">Jumlah Pencairan</td>
-                                        <td>:</td>
-                                        <td class="font-weight-bold text-success" id="info_jumlah">-</td>
-                                    </tr>
-                                </table>
-                            </div>
+                        <div class="alert alert-info">
+                            <h6 class="font-weight-bold mb-2">Informasi Pencairan Dana:</h6>
+                            <table class="table table-borderless table-sm mb-0">
+                                <tr>
+                                    <td width="40%">Nomor Pencairan</td>
+                                    <td width="5%">:</td>
+                                    <td>{{ $rekap->pencairanDana->nomor_pencairan }}</td>
+                                </tr>
+                                <tr>
+                                    <td>Kegiatan</td>
+                                    <td>:</td>
+                                    <td>{{ $rekap->pencairanDana->anggaranKegiatan->nama_kegiatan ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-weight-bold">Jumlah Pencairan</td>
+                                    <td>:</td>
+                                    <td class="font-weight-bold text-success">
+                                        Rp {{ number_format($rekap->pencairanDana->jumlah_pencairan, 0, ',', '.') }}
+                                    </td>
+                                </tr>
+                            </table>
                         </div>
 
                         <div class="form-group">
@@ -66,11 +108,18 @@
                                 <div class="input-group-prepend">
                                     <span class="input-group-text">Rp</span>
                                 </div>
-                                <input type="text" class="form-control" id="total_pengeluaran" name="total_pengeluaran" 
-                                       placeholder="0" required>
+                                <input type="text" 
+                                       class="form-control @error('total_pengeluaran') is-invalid @enderror" 
+                                       id="total_pengeluaran" 
+                                       name="total_pengeluaran" 
+                                       placeholder="0"
+                                       value="{{ old('total_pengeluaran', number_format($rekap->total_pengeluaran, 0, '', '.')) }}"
+                                       required>
                             </div>
                             <small class="form-text text-muted">Total pengeluaran dari dana yang telah dicairkan</small>
-                            <div class="invalid-feedback"></div>
+                            @error('total_pengeluaran')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
                         </div>
 
                         <div id="sisaDanaInfo">
@@ -80,7 +129,9 @@
                                         <strong>Sisa Dana:</strong>
                                     </div>
                                     <div>
-                                        <h4 class="mb-0" id="sisa_dana_display">Rp 0</h4>
+                                        <h4 class="mb-0" id="sisa_dana_display">
+                                            Rp {{ number_format($rekap->sisa_dana, 0, ',', '.') }}
+                                        </h4>
                                     </div>
                                 </div>
                             </div>
@@ -88,30 +139,50 @@
 
                         <div class="form-group">
                             <label for="catatan">Catatan / Keterangan</label>
-                            <textarea class="form-control" id="catatan" name="catatan" rows="5" 
-                                      placeholder="Jelaskan rincian pengeluaran dan penggunaan dana..."></textarea>
+                            <textarea class="form-control @error('catatan') is-invalid @enderror" 
+                                      id="catatan" 
+                                      name="catatan" 
+                                      rows="5" 
+                                      placeholder="Jelaskan rincian pengeluaran dan penggunaan dana...">{{ old('catatan', $rekap->catatan) }}</textarea>
                             <small class="form-text text-muted">Maksimal 1000 karakter</small>
-                            <div class="invalid-feedback"></div>
+                            @error('catatan')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
-                        <div class="alert alert-info" role="alert" id="statusInfo" style="display: none;">
-                            <i class="fas fa-info-circle"></i> <strong>Status:</strong> <span id="currentStatus"></span>
-                            <div id="rejectionNote" style="display: none;" class="mt-2">
-                                <strong>Catatan Penolakan:</strong>
-                                <div id="rejectionText" class="mt-1"></div>
-                            </div>
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle"></i> 
+                            <strong>Status:</strong> 
+                            @if($rekap->status === 'draft')
+                                <span class="badge badge-secondary">Draft</span>
+                            @elseif($rekap->status === 'diajukan')
+                                <span class="badge badge-info">Diajukan</span>
+                            @elseif($rekap->status === 'disetujui')
+                                <span class="badge badge-success">Disetujui</span>
+                            @elseif($rekap->status === 'ditolak')
+                                <span class="badge badge-danger">Ditolak</span>
+                            @endif
+
+                            @if($rekap->status === 'ditolak' && $rekap->catatan)
+                                <div class="mt-2">
+                                    <strong>Catatan Penolakan:</strong>
+                                    <div class="alert alert-danger mt-1 mb-0">
+                                        {{ $rekap->catatan }}
+                                    </div>
+                                </div>
+                            @endif
                         </div>
 
                         <hr>
 
                         <div class="form-group mb-0">
-                            <button type="submit" class="btn btn-primary" id="btnSubmit">
+                            <button type="submit" name="submit_type" value="draft" class="btn btn-primary">
                                 <i class="fas fa-save"></i> Simpan Perubahan
                             </button>
-                            <button type="button" class="btn btn-success" id="btnSubmitApproval">
+                            <button type="submit" name="submit_type" value="submit" class="btn btn-success" id="btnSubmitApproval">
                                 <i class="fas fa-paper-plane"></i> Simpan & Ajukan
                             </button>
-                            <a href="/rekap-pengajuan/{{ $id }}" class="btn btn-secondary">
+                            <a href="{{ route('rekap-pengajuan.show', $rekap->id) }}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Batal
                             </a>
                         </div>
@@ -148,7 +219,7 @@
             </div>
 
             <!-- History Card -->
-            <div class="card shadow mb-4" id="historyCard" style="display: none;">
+            <div class="card shadow mb-4">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="fas fa-history"></i> Riwayat
@@ -158,11 +229,11 @@
                     <table class="table table-borderless table-sm">
                         <tr>
                             <td class="font-weight-bold">Dibuat:</td>
-                            <td id="createdAt">-</td>
+                            <td>{{ \Carbon\Carbon::parse($rekap->created_at)->isoFormat('DD MMM YYYY, HH:mm') }}</td>
                         </tr>
                         <tr>
                             <td class="font-weight-bold">Update Terakhir:</td>
-                            <td id="updatedAt">-</td>
+                            <td>{{ \Carbon\Carbon::parse($rekap->updated_at)->isoFormat('DD MMM YYYY, HH:mm') }}</td>
                         </tr>
                     </table>
                 </div>
@@ -175,13 +246,7 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    const rekapId = {{ $id }};
-    let submitAndApprove = false;
-    let originalData = null;
-    let jumlahPencairan = 0;
-
-    // Load existing data
-    loadRekapData();
+    const jumlahPencairan = {{ $rekap->pencairanDana->jumlah_pencairan }};
 
     // Format currency input
     $('#total_pengeluaran').on('keyup', function() {
@@ -189,219 +254,39 @@ $(document).ready(function() {
         $(this).val(formatNumber(value));
         
         // Calculate and display sisa dana
-        if (jumlahPencairan > 0) {
+        if (jumlahPencairan > 0 && value) {
             const pengeluaran = parseFloat(value) || 0;
             const sisaDana = jumlahPencairan - pengeluaran;
             
             if (pengeluaran > jumlahPencairan) {
                 $(this).addClass('is-invalid');
-                $(this).siblings('.invalid-feedback').text(`Total pengeluaran melebihi jumlah pencairan (${formatRupiah(jumlahPencairan)})`);
+                showValidationMessage('Total pengeluaran melebihi jumlah pencairan (Rp ' + formatNumber(jumlahPencairan) + ')');
+                $('#sisaDanaInfo').hide();
             } else {
                 $(this).removeClass('is-invalid');
-                $(this).siblings('.invalid-feedback').text('');
+                hideValidationMessage();
+                $('#sisa_dana_display').text(formatRupiah(sisaDana));
+                $('#sisaDanaInfo').show();
             }
-            
-            $('#sisa_dana_display').text(formatRupiah(sisaDana));
         }
     });
 
-    // Load rekap data
-    function loadRekapData() {
-        $.ajax({
-            url: `/api/rekap-pengajuan/${rekapId}`,
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
-            },
-            success: function(response) {
-                if (response.success) {
-                    originalData = response.data;
-                    populateForm(originalData);
-                }
-            },
-            error: function(xhr) {
-                if (xhr.status === 404) {
-                    showAlert('error', 'Rekap pengajuan tidak ditemukan');
-                    setTimeout(() => window.location.href = '/rekap-pengajuan', 2000);
-                } else if (xhr.status === 403) {
-                    showAlert('error', 'Anda tidak memiliki akses untuk mengedit rekap pengajuan ini');
-                    setTimeout(() => window.location.href = '/rekap-pengajuan', 2000);
-                } else {
-                    showAlert('error', 'Gagal memuat data rekap pengajuan');
-                }
-            }
-        });
-    }
+    // Trigger calculation on page load
+    @if(old('total_pengeluaran'))
+        $('#total_pengeluaran').trigger('keyup');
+    @endif
 
-    // Populate form with existing data
-    function populateForm(data) {
-        $('#nomor_rekap').val(data.nomor_rekap);
-        $('#total_pengeluaran').val(formatNumber(data.total_pengeluaran));
-        $('#catatan').val(data.catatan);
-
-        // Calculate initial sisa dana
-        if (data.pencairan_dana) {
-            jumlahPencairan = data.pencairan_dana.jumlah_pencairan;
-            const sisaDana = jumlahPencairan - data.total_pengeluaran;
-            $('#sisa_dana_display').text(formatRupiah(sisaDana));
-
-            // Pencairan info
-            $('#pencairan_display').val(data.pencairan_dana.nomor_pencairan);
-            $('#info_nomor').text(data.pencairan_dana.nomor_pencairan);
-            $('#info_jumlah').text(formatRupiah(data.pencairan_dana.jumlah_pencairan));
-
-            if (data.pencairan_dana.anggaran_kegiatan) {
-                $('#info_kegiatan').text(data.pencairan_dana.anggaran_kegiatan.nama_kegiatan);
-            }
-        }
-
-        // Show status info
-        $('#statusInfo').show();
-        $('#currentStatus').html(getStatusBadge(data.status));
-
-        // Show rejection note if status is ditolak
-        if (data.status === 'ditolak' && data.catatan) {
-            $('#rejectionNote').show();
-            $('#rejectionText').html(`<div class="alert alert-danger mb-0">${data.catatan}</div>`);
-        }
-
-        // Show history
-        $('#historyCard').show();
-        $('#createdAt').text(formatDateTime(data.created_at));
-        $('#updatedAt').text(formatDateTime(data.updated_at));
-
-        // Check if can edit
-        if (data.status !== 'draft' && data.status !== 'ditolak') {
-            showAlert('warning', 'Rekap pengajuan ini tidak dapat diedit karena sudah dalam proses persetujuan atau telah disetujui');
-            $('input:not([readonly]), textarea').prop('readonly', true);
-            $('#btnSubmit, #btnSubmitApproval').prop('disabled', true);
-        }
-    }
-
-    // Submit as draft
-    $('#btnSubmit').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = false;
-        submitForm();
-    });
-
-    // Submit and request approval
-    $('#btnSubmitApproval').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = true;
+    // Confirm before submit with approval
+    $('#formRekapPengajuan').on('submit', function(e) {
+        const submitType = $('button[type="submit"]:focus').val();
         
-        if (confirm('Apakah Anda yakin ingin menyimpan perubahan dan langsung mengajukan rekap pengajuan ini untuk disetujui?')) {
-            submitForm();
+        if (submitType === 'submit') {
+            if (!confirm('Apakah Anda yakin ingin menyimpan perubahan dan langsung mengajukan rekap pengajuan ini untuk disetujui?')) {
+                e.preventDefault();
+                return false;
+            }
         }
     });
-
-    function submitForm() {
-        // Clear previous errors
-        $('.form-control').removeClass('is-invalid');
-        $('.invalid-feedback').text('');
-
-        // Validate
-        const totalPengeluaran = parseFloat($('#total_pengeluaran').val().replace(/[^0-9]/g, ''));
-        
-        if (totalPengeluaran > jumlahPencairan) {
-            showAlert('error', 'Total pengeluaran melebihi jumlah pencairan');
-            return;
-        }
-
-        if (totalPengeluaran <= 0) {
-            showAlert('error', 'Total pengeluaran harus lebih dari 0');
-            return;
-        }
-
-        // Disable submit buttons
-        $('#btnSubmit, #btnSubmitApproval').prop('disabled', true);
-        $('#btnSubmit').html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-        $('#btnSubmitApproval').html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-
-        // Prepare data
-        const formData = {
-            total_pengeluaran: totalPengeluaran,
-            catatan: $('#catatan').val()
-        };
-
-        // Update rekap pengajuan
-        $.ajax({
-            url: `/api/rekap-pengajuan/${rekapId}`,
-            method: 'PUT',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
-                if (response.success) {
-                    // If submit and approve, call submit endpoint
-                    if (submitAndApprove) {
-                        submitForApproval();
-                    } else {
-                        showAlert('success', response.message);
-                        setTimeout(function() {
-                            window.location.href = `/rekap-pengajuan/${rekapId}`;
-                        }, 1500);
-                    }
-                }
-            },
-            error: function(xhr) {
-                // Enable submit buttons
-                $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-save"></i> Simpan Perubahan');
-                $('#btnSubmitApproval').prop('disabled', false).html('<i class="fas fa-paper-plane"></i> Simpan & Ajukan');
-
-                if (xhr.status === 422) {
-                    // Validation errors
-                    const errors = xhr.responseJSON.errors;
-                    for (let field in errors) {
-                        $(`#${field}`).addClass('is-invalid');
-                        $(`#${field}`).siblings('.invalid-feedback').text(errors[field][0]);
-                    }
-                    showAlert('error', 'Terdapat kesalahan pada form. Silakan periksa kembali.');
-                } else {
-                    const message = xhr.responseJSON?.message || 'Gagal menyimpan perubahan';
-                    showAlert('error', message);
-                }
-            }
-        });
-    }
-
-    function submitForApproval() {
-        $.ajax({
-            url: `/api/rekap-pengajuan/${rekapId}/submit`,
-            method: 'POST',
-            headers: {
-                'Authorization': 'Bearer ' + localStorage.getItem('token')
-            },
-            success: function(response) {
-                if (response.success) {
-                    showAlert('success', 'Perubahan berhasil disimpan dan diajukan untuk persetujuan');
-                    setTimeout(function() {
-                        window.location.href = `/rekap-pengajuan/${rekapId}`;
-                    }, 1500);
-                }
-            },
-            error: function(xhr) {
-                const message = xhr.responseJSON?.message || 'Perubahan berhasil disimpan, namun gagal diajukan';
-                showAlert('warning', message);
-                setTimeout(function() {
-                    window.location.href = `/rekap-pengajuan/${rekapId}`;
-                }, 2000);
-            }
-        });
-    }
-
-    // Helper: Get status badge
-    function getStatusBadge(status) {
-        const badges = {
-            'draft': '<span class="badge badge-secondary">Draft</span>',
-            'diajukan': '<span class="badge badge-info">Diajukan</span>',
-            'disetujui': '<span class="badge badge-success">Disetujui</span>',
-            'ditolak': '<span class="badge badge-danger">Ditolak</span>'
-        };
-        return badges[status] || status;
-    }
 
     // Helper: Format number with thousand separator
     function formatNumber(num) {
@@ -413,41 +298,25 @@ $(document).ready(function() {
         return 'Rp ' + new Intl.NumberFormat('id-ID').format(amount);
     }
 
-    // Helper: Format DateTime
-    function formatDateTime(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', { 
-            day: '2-digit', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
+    // Show validation message
+    function showValidationMessage(message) {
+        let feedback = $('#total_pengeluaran').siblings('.invalid-feedback');
+        if (feedback.length === 0) {
+            $('#total_pengeluaran').after('<div class="invalid-feedback d-block">' + message + '</div>');
+        } else {
+            feedback.text(message).addClass('d-block');
+        }
     }
 
-    // Helper: Show alert
-    function showAlert(type, message) {
-        let alertClass = 'alert-info';
-        if (type === 'success') alertClass = 'alert-success';
-        if (type === 'error') alertClass = 'alert-danger';
-        if (type === 'warning') alertClass = 'alert-warning';
-
-        const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span>&times;</span>
-                </button>
-            </div>
-        `;
-        $('#alertContainer').html(alertHtml);
-        
-        setTimeout(function() {
-            $('.alert').fadeOut('slow', function() {
-                $(this).remove();
-            });
-        }, 5000);
+    // Hide validation message
+    function hideValidationMessage() {
+        $('#total_pengeluaran').siblings('.invalid-feedback').removeClass('d-block');
     }
+
+    // Auto dismiss alerts
+    setTimeout(function() {
+        $('.alert').fadeOut('slow');
+    }, 5000);
 });
 </script>
 @endpush

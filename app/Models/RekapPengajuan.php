@@ -33,7 +33,7 @@ class RekapPengajuan extends Model
 
     public function bukuCek()
     {
-        return $this->hasMany(BukuCek::class);
+        return $this->hasOne(BukuCek::class, 'rekap_pengajuan_id');
     }
 
     public function documents()

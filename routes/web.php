@@ -133,10 +133,17 @@ Route::middleware(['auth'])->group(function () {
     */
     Route::resource('buku-cek', BukuCekController::class);
     Route::prefix('buku-cek')->name('buku-cek.')->group(function () {
+        // Staff can submit for approval
+        Route::middleware(['role:staff,super_admin,admin'])->group(function () {
+            Route::post('{bukuCek}/submit', [BukuCekController::class, 'submit'])->name('submit');
+        });
+        
+        // Kepala JIC can sign
         Route::middleware(['role:kepala_jic,super_admin,admin'])->group(function () {
             Route::post('{bukuCek}/sign', [BukuCekController::class, 'sign'])->name('sign');
         });
         
+        // Kadiv Umum and Kepala JIC can cash and cancel
         Route::middleware(['role:kadiv_umum,kepala_jic,super_admin,admin'])->group(function () {
             Route::post('{bukuCek}/cash', [BukuCekController::class, 'cash'])->name('cash');
             Route::post('{bukuCek}/cancel', [BukuCekController::class, 'cancel'])->name('cancel');
