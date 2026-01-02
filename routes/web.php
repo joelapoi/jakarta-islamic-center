@@ -155,14 +155,22 @@ Route::middleware(['auth'])->group(function () {
     | LPJ Kegiatan
     |----------------------------------------------------------------------
     */
-    Route::resource('lpj-kegiatan', LpjKegiatanController::class);
-    Route::prefix('lpj-kegiatan')->name('lpj-kegiatan.')->group(function () {
-        Route::post('{lpjKegiatan}/submit', [LpjKegiatanController::class, 'submit'])->name('submit');
+    // LPJ Kegiatan Routes
+    Route::middleware(['auth'])->group(function () {
+        Route::resource('lpj-kegiatan', LpjKegiatanController::class);
         
-        // Approval Routes
-        Route::middleware(['role:kadiv_umum,kepala_jic,super_admin,admin'])->group(function () {
-            Route::post('{lpjKegiatan}/approve', [LpjKegiatanController::class, 'approve'])->name('approve');
-            Route::post('{lpjKegiatan}/reject', [LpjKegiatanController::class, 'reject'])->name('reject');
+        Route::prefix('lpj-kegiatan')->name('lpj-kegiatan.')->group(function () {
+            // PDF Generation - hanya untuk yang sudah disetujui
+            Route::get('{lpjKegiatan}/pdf', [LpjKegiatanController::class, 'generatePdf'])->name('pdf');
+            
+            // Submit untuk pengajuan - staff yang membuat bisa submit
+            Route::post('{lpjKegiatan}/submit', [LpjKegiatanController::class, 'submit'])->name('submit');
+            
+            // Approval Routes - hanya untuk role tertentu
+            Route::middleware(['role:kadiv_umum,kepala_jic,super_admin,admin'])->group(function () {
+                Route::post('{lpjKegiatan}/approve', [LpjKegiatanController::class, 'approve'])->name('approve');
+                Route::post('{lpjKegiatan}/reject', [LpjKegiatanController::class, 'reject'])->name('reject');
+            });
         });
     });
 

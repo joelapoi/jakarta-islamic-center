@@ -2,58 +2,95 @@
 
 @section('content')
 <div class="container-fluid">
+    <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Buat LPJ Kegiatan</h1>
-        <a href="{{ route('lpj-kegiatan.index') }}" class="btn btn-secondary">
-            <i class="fas fa-arrow-left"></i> Kembali
+        <a href="{{ route('lpj-kegiatan.index') }}" class="btn btn-secondary shadow-sm">
+            <i class="fas fa-arrow-left fa-sm text-white-50"></i> Kembali
         </a>
     </div>
 
-    <div id="alertContainer"></div>
+    <!-- Alert Messages -->
+    @if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ session('error') }}
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <ul class="mb-0">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+        </button>
+    </div>
+    @endif
 
     <div class="row">
         <div class="col-lg-8">
+            <!-- Form Card -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">Form LPJ Kegiatan</h6>
                 </div>
                 <div class="card-body">
-                    <form id="formLPJ">
+                    <form method="POST" action="{{ route('lpj-kegiatan.store') }}">
+                        @csrf
+
                         <div class="form-group">
-                            <label for="anggaran_kegiatan_id">Kegiatan <span class="text-danger">*</span></label>
-                            <div class="input-group">
-                                <input type="hidden" id="anggaran_kegiatan_id" name="anggaran_kegiatan_id">
-                                <input type="text" class="form-control" id="kegiatan_display" readonly 
-                                       placeholder="Pilih kegiatan">
-                                <div class="input-group-append">
-                                    <button class="btn btn-outline-secondary" type="button" id="btnPilihKegiatan">
-                                        <i class="fas fa-search"></i> Pilih
-                                    </button>
-                                </div>
-                            </div>
+                            <label for="anggaran_kegiatan_id">Pilih Kegiatan <span class="text-danger">*</span></label>
+                            <select name="anggaran_kegiatan_id" id="anggaran_kegiatan_id" class="form-control @error('anggaran_kegiatan_id') is-invalid @enderror" required>
+                                <option value="">-- Pilih Kegiatan --</option>
+                                @forelse($anggaranList as $anggaran)
+                                    <option value="{{ $anggaran->id }}" 
+                                            data-anggaran="{{ $anggaran->anggaran_disetujui }}"
+                                            data-kode="{{ $anggaran->kode_kegiatan }}"
+                                            data-periode="{{ \Carbon\Carbon::parse($anggaran->tanggal_mulai)->format('d M Y') }} s/d {{ \Carbon\Carbon::parse($anggaran->tanggal_selesai)->format('d M Y') }}"
+                                            {{ old('anggaran_kegiatan_id', $selectedAnggaran->id ?? '') == $anggaran->id ? 'selected' : '' }}>
+                                        {{ $anggaran->kode_kegiatan }} - {{ $anggaran->nama_kegiatan }} 
+                                        (Anggaran: Rp {{ number_format($anggaran->anggaran_disetujui, 0, ',', '.') }})
+                                    </option>
+                                @empty
+                                    <option value="" disabled>Tidak ada kegiatan yang tersedia</option>
+                                @endforelse
+                            </select>
+                            @error('anggaran_kegiatan_id')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            @if($anggaranList->isEmpty())
+                                <small class="form-text text-danger">
+                                    <i class="fas fa-exclamation-triangle"></i> 
+                                    Tidak ada kegiatan yang disetujui atau semua kegiatan sudah memiliki LPJ
+                                </small>
+                            @endif
                         </div>
 
-                        <div id="kegiatanInfo" style="display: none;">
-                            <div class="alert alert-info">
-                                <h6 class="font-weight-bold mb-2">Informasi Kegiatan:</h6>
-                                <table class="table table-borderless table-sm mb-0">
-                                    <tr>
-                                        <td width="40%">Kode Kegiatan</td>
-                                        <td width="5%">:</td>
-                                        <td id="info_kode">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Periode</td>
-                                        <td>:</td>
-                                        <td id="info_periode">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-weight-bold">Anggaran Disetujui</td>
-                                        <td>:</td>
-                                        <td class="font-weight-bold text-success" id="info_anggaran">-</td>
-                                    </tr>
-                                </table>
-                            </div>
+                        <div id="anggaranInfo" class="alert alert-info" style="display: none;">
+                            <h6 class="font-weight-bold mb-2">Informasi Kegiatan:</h6>
+                            <table class="table table-borderless table-sm mb-0">
+                                <tr>
+                                    <td width="40%">Kode Kegiatan</td>
+                                    <td width="5%">:</td>
+                                    <td id="info_kode">-</td>
+                                </tr>
+                                <tr>
+                                    <td>Periode</td>
+                                    <td>:</td>
+                                    <td id="info_periode">-</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-weight-bold">Anggaran Disetujui</td>
+                                    <td>:</td>
+                                    <td class="font-weight-bold text-success" id="info_anggaran">-</td>
+                                </tr>
+                            </table>
                         </div>
 
                         <div class="form-group">
@@ -62,38 +99,46 @@
                                 <div class="input-group-prepend">
                                     <span class="input-group-text">Rp</span>
                                 </div>
-                                <input type="text" class="form-control" id="total_realisasi" name="total_realisasi" 
-                                       placeholder="0" required>
+                                <input type="number" name="total_realisasi" id="total_realisasi" 
+                                       class="form-control @error('total_realisasi') is-invalid @enderror" 
+                                       value="{{ old('total_realisasi') }}" 
+                                       min="0" step="1" required>
                             </div>
-                            <small class="form-text text-muted">Total realisasi penggunaan anggaran</small>
-                            <div class="invalid-feedback"></div>
+                            @error('total_realisasi')
+                                <div class="invalid-feedback d-block">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">Masukkan total realisasi penggunaan anggaran dalam Rupiah</small>
                         </div>
 
-                        <div id="sisaAnggaranInfo" style="display: none;">
-                            <div class="alert alert-success">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <div><strong>Sisa Anggaran:</strong></div>
-                                    <div><h4 class="mb-0" id="sisa_anggaran_display">Rp 0</h4></div>
-                                </div>
+                        <div id="sisaAnggaranInfo" class="alert alert-success" style="display: none;">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div><strong>Sisa Anggaran:</strong></div>
+                                <div><h4 class="mb-0" id="sisa_anggaran_display">Rp 0</h4></div>
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label for="laporan_kegiatan">Laporan Kegiatan <span class="text-danger">*</span></label>
-                            <textarea class="form-control" id="laporan_kegiatan" name="laporan_kegiatan" rows="8" 
-                                      placeholder="Jelaskan pelaksanaan kegiatan, hasil yang dicapai, dan pertanggungjawaban penggunaan dana..." required></textarea>
-                            <small class="form-text text-muted">Laporan lengkap pertanggungjawaban kegiatan</small>
-                            <div class="invalid-feedback"></div>
+                            <textarea name="laporan_kegiatan" id="laporan_kegiatan" rows="10" 
+                                      class="form-control @error('laporan_kegiatan') is-invalid @enderror" 
+                                      placeholder="Jelaskan pelaksanaan kegiatan, hasil yang dicapai, dan pertanggungjawaban penggunaan dana secara detail..."
+                                      required>{{ old('laporan_kegiatan') }}</textarea>
+                            @error('laporan_kegiatan')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
+                            <small class="form-text text-muted">Tuliskan laporan lengkap pertanggungjawaban kegiatan</small>
                         </div>
 
                         <hr>
 
+                        <div class="alert alert-warning">
+                            <strong><i class="fas fa-info-circle"></i> Perhatian:</strong> 
+                            LPJ akan langsung diajukan setelah disimpan dan menunggu persetujuan dari Kadiv Umum atau Kepala JIC.
+                        </div>
+
                         <div class="form-group mb-0">
-                            <button type="submit" class="btn btn-primary" id="btnSubmit">
-                                <i class="fas fa-save"></i> Simpan sebagai Draft
-                            </button>
-                            <button type="button" class="btn btn-success" id="btnSubmitApproval" style="display: none;">
-                                <i class="fas fa-paper-plane"></i> Simpan & Ajukan
+                            <button type="submit" class="btn btn-primary" {{ $anggaranList->isEmpty() ? 'disabled' : '' }}>
+                                <i class="fas fa-paper-plane"></i> Simpan & Ajukan LPJ
                             </button>
                             <a href="{{ route('lpj-kegiatan.index') }}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Batal
@@ -105,6 +150,7 @@
         </div>
 
         <div class="col-lg-4">
+            <!-- Info Card -->
             <div class="card shadow mb-4">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">
@@ -114,318 +160,106 @@
                 <div class="card-body">
                     <h6 class="font-weight-bold">Alur LPJ:</h6>
                     <ol class="pl-3">
-                        <li>Draft dibuat</li>
-                        <li>Diajukan untuk persetujuan</li>
-                        <li>Disetujui Bendahara</li>
-                        <li>Pengarsipan</li>
+                        <li>LPJ dibuat & langsung diajukan</li>
+                        <li>Menunggu persetujuan</li>
+                        <li>Disetujui/Ditolak</li>
+                        <li>Jika ditolak, bisa diedit & diajukan kembali</li>
                     </ol>
                     
                     <hr>
                     
-                    <h6 class="font-weight-bold">Catatan:</h6>
+                    <h6 class="font-weight-bold">Catatan Penting:</h6>
                     <ul class="pl-3 mb-0">
                         <li>Pilih kegiatan yang sudah selesai</li>
-                        <li>Total realisasi ≤ Anggaran disetujui</li>
-                        <li>Jelaskan laporan dengan detail</li>
-                        <li>Sertakan hasil dan dokumentasi</li>
+                        <li>Total realisasi tidak boleh melebihi anggaran yang disetujui</li>
+                        <li>Laporan harus detail dan lengkap</li>
+                        <li>LPJ langsung diajukan setelah disimpan</li>
+                        <li>Jika ditolak, Anda dapat mengedit dan mengajukan kembali</li>
                     </ul>
                 </div>
             </div>
         </div>
     </div>
 </div>
-
-<!-- Modal Pilih Kegiatan -->
-<div class="modal fade" id="kegiatanModal" tabindex="-1" role="dialog">
-    <div class="modal-dialog modal-lg" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Pilih Kegiatan</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <input type="text" class="form-control" id="searchKegiatan" placeholder="Cari kegiatan...">
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-bordered table-hover">
-                        <thead class="thead-light">
-                            <tr>
-                                <th>Kode</th>
-                                <th>Nama Kegiatan</th>
-                                <th>Anggaran</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody id="kegiatanList">
-                            <tr>
-                                <td colspan="4" class="text-center">
-                                    <div class="spinner-border text-primary" role="status">
-                                        <span class="sr-only">Loading...</span>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Tutup</button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @endsection
 
 @push('scripts')
 <script>
 $(document).ready(function() {
-    let submitAndApprove = false;
-    let selectedKegiatan = null;
     let anggaranDisetujui = 0;
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const anggaranIdParam = urlParams.get('anggaran_id');
-    
-    if (anggaranIdParam) {
-        loadKegiatanDetail(anggaranIdParam);
-    }
-
-    $('#total_realisasi').on('keyup', function() {
-        let value = $(this).val().replace(/[^0-9]/g, '');
-        $(this).val(formatNumber(value));
+    // Show anggaran info when kegiatan is selected
+    $('#anggaran_kegiatan_id').on('change', function() {
+        const selectedOption = $(this).find('option:selected');
+        const anggaran = selectedOption.data('anggaran');
+        const kode = selectedOption.data('kode');
+        const periode = selectedOption.data('periode');
         
-        if (anggaranDisetujui > 0) {
-            const realisasi = parseFloat(value) || 0;
+        if (anggaran) {
+            anggaranDisetujui = anggaran;
+            $('#info_kode').text(kode);
+            $('#info_periode').text(periode);
+            $('#info_anggaran').text('Rp ' + new Intl.NumberFormat('id-ID').format(anggaran));
+            $('#anggaranInfo').slideDown();
+            calculateSisa();
+        } else {
+            $('#anggaranInfo').slideUp();
+            $('#sisaAnggaranInfo').slideUp();
+            anggaranDisetujui = 0;
+        }
+    });
+
+    // Calculate sisa anggaran on realisasi input
+    $('#total_realisasi').on('input', function() {
+        calculateSisa();
+    });
+
+    function calculateSisa() {
+        const realisasi = parseFloat($('#total_realisasi').val()) || 0;
+        
+        if (anggaranDisetujui > 0 && realisasi > 0) {
             const sisaAnggaran = anggaranDisetujui - realisasi;
             
             if (realisasi > anggaranDisetujui) {
-                $(this).addClass('is-invalid');
-                $(this).siblings('.invalid-feedback').text(`Total realisasi melebihi anggaran (${formatRupiah(anggaranDisetujui)})`);
-                $('#sisaAnggaranInfo').hide();
+                $('#total_realisasi').addClass('is-invalid');
+                $('#sisaAnggaranInfo').removeClass('alert-success').addClass('alert-danger');
+                $('#sisa_anggaran_display').text('Melebihi Anggaran!');
+                $('#sisaAnggaranInfo').slideDown();
             } else {
-                $(this).removeClass('is-invalid');
-                $(this).siblings('.invalid-feedback').text('');
-                $('#sisa_anggaran_display').text(formatRupiah(sisaAnggaran));
-                $('#sisaAnggaranInfo').show();
+                $('#total_realisasi').removeClass('is-invalid');
+                $('#sisaAnggaranInfo').removeClass('alert-danger').addClass('alert-success');
+                $('#sisa_anggaran_display').text('Rp ' + new Intl.NumberFormat('id-ID').format(sisaAnggaran));
+                $('#sisaAnggaranInfo').slideDown();
             }
-        }
-    });
-
-    $('#formLPJ input, #formLPJ textarea').on('input', function() {
-        if (isFormValid()) {
-            $('#btnSubmitApproval').show();
         } else {
-            $('#btnSubmitApproval').hide();
+            $('#sisaAnggaranInfo').slideUp();
         }
-    });
-
-    $('#btnPilihKegiatan').on('click', function() {
-        loadKegiatanList();
-        $('#kegiatanModal').modal('show');
-    });
-
-    let searchKegiatanTimeout;
-    $('#searchKegiatan').on('keyup', function() {
-        clearTimeout(searchKegiatanTimeout);
-        searchKegiatanTimeout = setTimeout(function() {
-            loadKegiatanList();
-        }, 500);
-    });
-
-    function loadKegiatanList() {
-        const search = $('#searchKegiatan').val();
-
-        $.ajax({
-            url: '/api/anggaran-kegiatan',
-            method: 'GET',
-            data: {
-                status: 'disetujui_kepala_jic',
-                search: search,
-                per_page: 100
-            },
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                if (response.success) {
-                    renderKegiatanList(response.data.data);
-                }
-            }
-        });
     }
 
-    function renderKegiatanList(data) {
-        let html = '';
-        if (data.length === 0) {
-            html = '<tr><td colspan="4" class="text-center">Tidak ada kegiatan yang disetujui</td></tr>';
-        } else {
-            data.forEach(function(item) {
-                html += `
-                    <tr>
-                        <td>${item.kode_kegiatan}</td>
-                        <td>${item.nama_kegiatan}</td>
-                        <td>${formatRupiah(item.anggaran_disetujui)}</td>
-                        <td>
-                            <button class="btn btn-sm btn-primary btn-select-kegiatan" data-id="${item.id}">
-                                <i class="fas fa-check"></i> Pilih
-                            </button>
-                        </td>
-                    </tr>
-                `;
-            });
-        }
-        $('#kegiatanList').html(html);
+    // Trigger change on page load if there's a selected value
+    if ($('#anggaran_kegiatan_id').val()) {
+        $('#anggaran_kegiatan_id').trigger('change');
     }
 
-    $(document).on('click', '.btn-select-kegiatan', function() {
-        const kegiatanId = $(this).data('id');
-        loadKegiatanDetail(kegiatanId);
-        $('#kegiatanModal').modal('hide');
-    });
-
-    function loadKegiatanDetail(kegiatanId) {
-        $.ajax({
-            url: `/api/anggaran-kegiatan/${kegiatanId}`,
-            method: 'GET',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                if (response.success) {
-                    selectedKegiatan = response.data;
-                    anggaranDisetujui = response.data.anggaran_disetujui;
-                    
-                    $('#anggaran_kegiatan_id').val(selectedKegiatan.id);
-                    $('#kegiatan_display').val(`${selectedKegiatan.kode_kegiatan} - ${selectedKegiatan.nama_kegiatan}`);
-                    
-                    $('#info_kode').text(selectedKegiatan.kode_kegiatan);
-                    $('#info_periode').text(`${formatDate(selectedKegiatan.tanggal_mulai)} s/d ${formatDate(selectedKegiatan.tanggal_selesai)}`);
-                    $('#info_anggaran').text(formatRupiah(selectedKegiatan.anggaran_disetujui));
-                    
-                    $('#kegiatanInfo').show();
-                }
-            }
-        });
-    }
-
-    $('#btnSubmit').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = false;
-        submitForm();
-    });
-
-    $('#btnSubmitApproval').on('click', function(e) {
-        e.preventDefault();
-        submitAndApprove = true;
+    // Form validation before submit
+    $('form').on('submit', function(e) {
+        const realisasi = parseFloat($('#total_realisasi').val()) || 0;
         
-        if (confirm('Apakah Anda yakin ingin menyimpan dan langsung mengajukan LPJ ini?')) {
-            submitForm();
+        if (realisasi > anggaranDisetujui) {
+            e.preventDefault();
+            alert('Total realisasi tidak boleh melebihi anggaran yang disetujui!');
+            return false;
         }
-    });
-
-    function submitForm() {
+        
         if (!$('#anggaran_kegiatan_id').val()) {
-            showAlert('error', 'Silakan pilih kegiatan terlebih dahulu');
-            return;
+            e.preventDefault();
+            alert('Silakan pilih kegiatan terlebih dahulu!');
+            return false;
         }
-
-        const totalRealisasi = parseFloat($('#total_realisasi').val().replace(/[^0-9]/g, ''));
-        if (totalRealisasi > anggaranDisetujui) {
-            showAlert('error', 'Total realisasi melebihi anggaran');
-            return;
-        }
-
-        $('#btnSubmit, #btnSubmitApproval').prop('disabled', true);
-        $('#btnSubmit').html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-
-        const formData = {
-            anggaran_kegiatan_id: parseInt($('#anggaran_kegiatan_id').val()),
-            total_realisasi: totalRealisasi,
-            laporan_kegiatan: $('#laporan_kegiatan').val()
-        };
-
-        $.ajax({
-            url: '/api/lpj-kegiatan',
-            method: 'POST',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                'Authorization': 'Bearer ' + getToken(),
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
-                if (response.success) {
-                    if (submitAndApprove) {
-                        submitForApproval(response.data.id);
-                    } else {
-                        showAlert('success', response.message);
-                        setTimeout(() => window.location.href = '/lpj-kegiatan', 1500);
-                    }
-                }
-            },
-            error: function(xhr) {
-                $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-save"></i> Simpan sebagai Draft');
-                $('#btnSubmitApproval').prop('disabled', false);
-                showAlert('error', xhr.responseJSON?.message || 'Gagal menyimpan LPJ');
-            }
-        });
-    }
-
-    function submitForApproval(id) {
-        $.ajax({
-            url: `/api/lpj-kegiatan/${id}/submit`,
-            method: 'POST',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                showAlert('success', 'LPJ berhasil disimpan dan diajukan');
-                setTimeout(() => window.location.href = '/lpj-kegiatan', 1500);
-            }
-        });
-    }
-
-    function isFormValid() {
-        const kegiatanId = $('#anggaran_kegiatan_id').val();
-        const realisasi = $('#total_realisasi').val().replace(/[^0-9]/g, '');
-        const laporan = $('#laporan_kegiatan').val().trim();
-
-        return kegiatanId && realisasi && laporan && parseFloat(realisasi) <= anggaranDisetujui;
-    }
-
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    }
-
-    function formatRupiah(amount) {
-        return 'Rp ' + new Intl.NumberFormat('id-ID').format(amount);
-    }
-
-    function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' });
-    }
-
-    function showAlert(type, message) {
-        const alertClass = type === 'success' ? 'alert-success' : 'alert-danger';
-        const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span>&times;</span>
-                </button>
-            </div>
-        `;
-        $('#alertContainer').html(alertHtml);
-        setTimeout(() => $('.alert').fadeOut('slow', function() { $(this).remove(); }), 5000);
-    }
+        
+        // Show loading state
+        $(this).find('button[type="submit"]').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
+    });
 });
 </script>
 @endpush

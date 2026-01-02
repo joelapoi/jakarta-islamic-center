@@ -7,6 +7,7 @@ use App\Models\LpjKegiatan;
 use App\Models\AnggaranKegiatan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class LpjKegiatanController extends Controller
 {
@@ -45,31 +46,68 @@ class LpjKegiatanController extends Controller
             $query->where('created_by', $user->id);
         }
 
-        $lpj = $query->latest()->paginate(15);
+        $lpj = $query->latest()->paginate(15)->withQueryString();
+        
+        // Get statistics
+        $statistics = $this->getStatistics();
         
         $anggaranList = AnggaranKegiatan::where('status', 'disetujui_kepala_jic')
             ->orderBy('nama_kegiatan')
             ->get();
 
-        return view('lpj-kegiatan.index', compact('lpj', 'anggaranList'));
+        return view('lpj-kegiatan.index', compact('lpj', 'anggaranList', 'statistics'));
+    }
+
+    /**
+     * Get statistics for dashboard
+     */
+    private function getStatistics()
+    {
+        $user = auth()->user();
+        $query = LpjKegiatan::query();
+
+        // Filter by user role
+        if (!$user->hasAnyRole(['super_admin', 'admin', 'kepala_jic', 'kadiv_umum'])) {
+            $query->where('created_by', $user->id);
+        }
+
+        $total = $query->count();
+        $draft = (clone $query)->where('status', 'draft')->count();
+        $diajukan = (clone $query)->where('status', 'diajukan')->count();
+        $disetujui = (clone $query)->where('status', 'disetujui')->count();
+        $ditolak = (clone $query)->where('status', 'ditolak')->count();
+
+        return [
+            'total' => $total,
+            'draft' => $draft,
+            'diajukan' => $diajukan,
+            'disetujui' => $disetujui,
+            'ditolak' => $ditolak,
+        ];
     }
 
     /**
      * Show the form for creating a new LPJ kegiatan
      */
-    public function create()
+    public function create(Request $request)
     {
         // Get anggaran that are approved and don't have LPJ yet
         $anggaranList = AnggaranKegiatan::where('status', 'disetujui_kepala_jic')
             ->whereDoesntHave('lpjKegiatan')
             ->orderBy('nama_kegiatan')
             ->get();
+
+        // If anggaran_id is provided in query string, preselect it
+        $selectedAnggaran = null;
+        if ($request->filled('anggaran_id')) {
+            $selectedAnggaran = AnggaranKegiatan::find($request->anggaran_id);
+        }
             
-        return view('lpj-kegiatan.create', compact('anggaranList'));
+        return view('lpj-kegiatan.create', compact('anggaranList', 'selectedAnggaran'));
     }
 
     /**
-     * Store a newly created LPJ kegiatan
+     * Store a newly created LPJ kegiatan (langsung submit)
      */
     public function store(Request $request)
     {
@@ -127,20 +165,21 @@ class LpjKegiatanController extends Controller
             // Calculate sisa anggaran
             $sisaAnggaran = $anggaran->anggaran_disetujui - $request->total_realisasi;
 
+            // Create LPJ with status 'diajukan' (langsung submit, tanpa draft)
             $lpj = LpjKegiatan::create([
                 'anggaran_kegiatan_id' => $request->anggaran_kegiatan_id,
                 'nomor_lpj' => $nomorLpj,
                 'total_realisasi' => $request->total_realisasi,
                 'sisa_anggaran' => $sisaAnggaran,
                 'laporan_kegiatan' => $request->laporan_kegiatan,
-                'status' => 'draft',
+                'status' => 'diajukan', // Langsung diajukan, bukan draft
                 'created_by' => auth()->id(),
             ]);
 
             DB::commit();
 
             return redirect()->route('lpj-kegiatan.show', $lpj->id)
-                ->with('success', 'LPJ kegiatan berhasil dibuat');
+                ->with('success', 'LPJ kegiatan berhasil dibuat dan diajukan untuk persetujuan');
 
         } catch (\Exception $e) {
             DB::rollBack();
@@ -371,5 +410,34 @@ class LpjKegiatanController extends Controller
         } catch (\Exception $e) {
             return back()->with('error', 'Gagal menolak LPJ kegiatan: ' . $e->getMessage());
         }
+    }
+
+    /**
+     * Generate PDF for LPJ kegiatan
+     */
+    public function generatePdf($id)
+    {
+        $lpj = LpjKegiatan::with([
+            'anggaranKegiatan',
+            'creator',
+            'approver'
+        ])->findOrFail($id);
+
+        // Check permission
+        $user = auth()->user();
+        if (!$user->hasAnyRole(['super_admin', 'admin', 'kepala_jic', 'kadiv_umum'])) {
+            if ($lpj->created_by !== $user->id) {
+                abort(403, 'Anda tidak memiliki akses ke LPJ kegiatan ini');
+            }
+        }
+
+        // Only approved LPJ can generate PDF
+        if ($lpj->status !== 'disetujui') {
+            return back()->with('error', 'Hanya LPJ yang sudah disetujui yang dapat di-generate PDF');
+        }
+
+        $pdf = PDF::loadView('lpj-kegiatan.pdf', compact('lpj'));
+        
+        return $pdf->download('LPJ-' . $lpj->nomor_lpj . '.pdf');
     }
 }
