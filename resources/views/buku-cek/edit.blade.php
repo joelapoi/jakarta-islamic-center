@@ -2,11 +2,43 @@
 
 @section('content')
 <div class="container-fluid">
+    <!-- Alert Messages -->
+    @if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{ session('success') }}
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ session('error') }}
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <ul class="mb-0">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    </div>
+    @endif
+
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Edit Buku Cek</h1>
         <div>
-            <a href="/buku-cek/{{ $id }}" class="btn btn-info">
+            <a href="{{ route('buku-cek.show', $bukuCek->id) }}" class="btn btn-info">
                 <i class="fas fa-eye"></i> Lihat Detail
             </a>
             <a href="{{ route('buku-cek.index') }}" class="btn btn-secondary">
@@ -14,9 +46,6 @@
             </a>
         </div>
     </div>
-
-    <!-- Alert Container -->
-    <div id="alertContainer"></div>
 
     <!-- Form Card -->
     <div class="row">
@@ -26,92 +55,162 @@
                     <h6 class="m-0 font-weight-bold text-primary">Form Edit Buku Cek</h6>
                 </div>
                 <div class="card-body">
-                    <form id="formBukuCek">
+                    <form action="{{ route('buku-cek.update', $bukuCek->id) }}" method="POST" id="formBukuCek">
+                        @csrf
+                        @method('PUT')
+                        
+                        <!-- Nomor Buku Cek (Read Only) -->
                         <div class="form-group">
                             <label>Nomor Buku Cek</label>
-                            <input type="text" class="form-control" id="nomor_buku_cek" readonly>
+                            <input type="text" 
+                                   class="form-control" 
+                                   value="{{ $bukuCek->nomor_buku_cek }}"
+                                   readonly 
+                                   style="background-color: #e9ecef;">
                         </div>
 
+                        <!-- Rekap Pengajuan (Read Only) -->
                         <div class="form-group">
                             <label>Rekap Pengajuan</label>
-                            <input type="text" class="form-control" id="rekap_display" readonly>
+                            <input type="text" 
+                                   class="form-control" 
+                                   value="{{ $bukuCek->rekapPengajuan->nomor_rekap }}"
+                                   readonly 
+                                   style="background-color: #e9ecef;">
                         </div>
 
-                        <div id="rekapInfo">
-                            <div class="alert alert-info">
-                                <h6 class="font-weight-bold mb-2">Informasi Rekap Pengajuan:</h6>
-                                <table class="table table-borderless table-sm mb-0">
-                                    <tr>
-                                        <td width="40%">Nomor Rekap</td>
-                                        <td width="5%">:</td>
-                                        <td id="info_nomor">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td>Kegiatan</td>
-                                        <td>:</td>
-                                        <td id="info_kegiatan">-</td>
-                                    </tr>
-                                    <tr>
-                                        <td class="font-weight-bold">Sisa Dana</td>
-                                        <td>:</td>
-                                        <td class="font-weight-bold text-success" id="info_sisa">-</td>
-                                    </tr>
-                                </table>
-                            </div>
+                        <!-- Rekap Information (Read Only) -->
+                        <div class="alert alert-info">
+                            <h6 class="font-weight-bold mb-2">Informasi Rekap Pengajuan:</h6>
+                            <table class="table table-borderless table-sm mb-0">
+                                <tr>
+                                    <td width="40%">Nomor Rekap</td>
+                                    <td width="5%">:</td>
+                                    <td><strong>{{ $bukuCek->rekapPengajuan->nomor_rekap }}</strong></td>
+                                </tr>
+                                <tr>
+                                    <td>Kegiatan</td>
+                                    <td>:</td>
+                                    <td>{{ $bukuCek->rekapPengajuan->pencairanDana->anggaranKegiatan->nama_kegiatan ?? '-' }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="font-weight-bold">Sisa Dana</td>
+                                    <td>:</td>
+                                    <td class="font-weight-bold text-success">Rp {{ number_format($bukuCek->rekapPengajuan->sisa_dana, 0, ',', '.') }}</td>
+                                </tr>
+                            </table>
                         </div>
 
+                        <!-- Nama Bank -->
                         <div class="form-group">
                             <label for="nama_bank">Nama Bank <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="nama_bank" name="nama_bank" 
-                                   placeholder="Contoh: Bank BNI" required>
-                            <div class="invalid-feedback"></div>
+                            <input type="text" 
+                                   class="form-control @error('nama_bank') is-invalid @enderror" 
+                                   id="nama_bank" 
+                                   name="nama_bank" 
+                                   value="{{ old('nama_bank', $bukuCek->nama_bank) }}"
+                                   placeholder="Contoh: Bank BNI" 
+                                   required>
+                            @error('nama_bank')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
+                        <!-- Nomor Rekening -->
                         <div class="form-group">
                             <label for="nomor_rekening">Nomor Rekening <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="nomor_rekening" name="nomor_rekening" 
-                                   placeholder="Contoh: 1234567890" required>
-                            <div class="invalid-feedback"></div>
+                            <input type="text" 
+                                   class="form-control @error('nomor_rekening') is-invalid @enderror" 
+                                   id="nomor_rekening" 
+                                   name="nomor_rekening" 
+                                   value="{{ old('nomor_rekening', $bukuCek->nomor_rekening) }}"
+                                   placeholder="Contoh: 1234567890" 
+                                   required>
+                            @error('nomor_rekening')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
+                        <!-- Nama Penerima -->
                         <div class="form-group">
                             <label for="nama_penerima">Nama Penerima <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="nama_penerima" name="nama_penerima" 
-                                   placeholder="Nama lengkap penerima" required>
-                            <div class="invalid-feedback"></div>
+                            <input type="text" 
+                                   class="form-control @error('nama_penerima') is-invalid @enderror" 
+                                   id="nama_penerima" 
+                                   name="nama_penerima" 
+                                   value="{{ old('nama_penerima', $bukuCek->nama_penerima) }}"
+                                   placeholder="Nama lengkap penerima" 
+                                   required>
+                            @error('nama_penerima')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
+                        <!-- Jumlah Dana (Read Only) -->
                         <div class="form-group">
-                            <label for="jumlah">Jumlah Dana <span class="text-danger">*</span></label>
+                            <label for="jumlah_display">Jumlah Dana</label>
                             <div class="input-group">
                                 <div class="input-group-prepend">
                                     <span class="input-group-text">Rp</span>
                                 </div>
-                                <input type="text" class="form-control" id="jumlah" name="jumlah" 
-                                       placeholder="0" required readonly>
+                                <input type="text" 
+                                       class="form-control" 
+                                       id="jumlah_display" 
+                                       value="{{ number_format($bukuCek->jumlah, 0, ',', '.') }}"
+                                       readonly 
+                                       style="background-color: #e9ecef;">
                             </div>
-                            <small class="form-text text-muted">Jumlah otomatis dari sisa dana rekap pengajuan</small>
-                            <div class="invalid-feedback"></div>
+                            <small class="form-text text-muted">Jumlah otomatis dari sisa dana rekap pengajuan (tidak dapat diubah)</small>
                         </div>
 
+                        <!-- Hidden field for actual number value -->
+                        <input type="hidden" name="jumlah" value="{{ $bukuCek->jumlah }}">
+
+                        <!-- Keperluan -->
                         <div class="form-group">
                             <label for="keperluan">Keperluan</label>
-                            <textarea class="form-control" id="keperluan" name="keperluan" rows="4" 
-                                      placeholder="Jelaskan keperluan pencairan dana..."></textarea>
-                            <div class="invalid-feedback"></div>
+                            <textarea class="form-control @error('keperluan') is-invalid @enderror" 
+                                      id="keperluan" 
+                                      name="keperluan" 
+                                      rows="4" 
+                                      placeholder="Jelaskan keperluan pencairan dana...">{{ old('keperluan', $bukuCek->keperluan) }}</textarea>
+                            @error('keperluan')
+                                <div class="invalid-feedback">{{ $message }}</div>
+                            @enderror
                         </div>
 
-                        <div class="alert alert-info" role="alert" id="statusInfo" style="display: none;">
-                            <i class="fas fa-info-circle"></i> <strong>Status:</strong> <span id="currentStatus"></span>
+                        <!-- Status Info -->
+                        <div class="alert alert-info" role="alert">
+                            <i class="fas fa-info-circle"></i> <strong>Status:</strong> 
+                            @switch($bukuCek->status)
+                                @case('draft')
+                                    <span class="badge badge-secondary">Draft</span>
+                                    @break
+                                @case('menunggu_ttd_kepala_jic')
+                                    <span class="badge badge-warning">Menunggu TTD</span>
+                                    @break
+                                @case('ditandatangani')
+                                    <span class="badge badge-primary">Ditandatangani</span>
+                                    @break
+                                @case('dikonfirmasi_bank')
+                                    <span class="badge badge-success">Dikonfirmasi Bank</span>
+                                    @break
+                                @case('ditolak')
+                                    <span class="badge badge-danger">Ditolak</span>
+                                    @break
+                                @default
+                                    <span class="badge badge-secondary">{{ $bukuCek->status }}</span>
+                            @endswitch
                         </div>
 
                         <hr>
 
+                        <!-- Submit Buttons -->
                         <div class="form-group mb-0">
                             <button type="submit" class="btn btn-primary" id="btnSubmit">
                                 <i class="fas fa-save"></i> Simpan Perubahan
                             </button>
-                            <a href="/buku-cek/{{ $id }}" class="btn btn-secondary">
+                            <a href="{{ route('buku-cek.show', $bukuCek->id) }}" class="btn btn-secondary">
                                 <i class="fas fa-times"></i> Batal
                             </a>
                         </div>
@@ -120,6 +219,7 @@
             </div>
         </div>
 
+        <!-- Info Cards -->
         <div class="col-lg-4">
             <!-- Info Card -->
             <div class="card shadow mb-4">
@@ -133,6 +233,7 @@
                     <ul class="pl-3">
                         <li>Hanya buku cek dengan status <strong>Draft</strong> yang dapat diedit</li>
                         <li>Setelah ditandatangani, data tidak dapat diubah</li>
+                        <li>Nomor buku cek tidak dapat diubah</li>
                     </ul>
                     
                     <hr>
@@ -142,30 +243,87 @@
                         <li>Pastikan data bank benar</li>
                         <li>Periksa nama penerima dengan teliti</li>
                         <li>Jumlah akan otomatis dari sisa dana</li>
+                        <li>Status saat ini: 
+                            @switch($bukuCek->status)
+                                @case('draft')
+                                    <span class="badge badge-secondary">Draft</span>
+                                    @break
+                                @case('menunggu_ttd_kepala_jic')
+                                    <span class="badge badge-warning">Menunggu TTD</span>
+                                    @break
+                                @case('ditandatangani')
+                                    <span class="badge badge-primary">Ditandatangani</span>
+                                    @break
+                                @case('dikonfirmasi_bank')
+                                    <span class="badge badge-success">Dikonfirmasi Bank</span>
+                                    @break
+                                @case('ditolak')
+                                    <span class="badge badge-danger">Ditolak</span>
+                                    @break
+                            @endswitch
+                        </li>
                     </ul>
                 </div>
             </div>
 
             <!-- History Card -->
-            <div class="card shadow mb-4" id="historyCard" style="display: none;">
+            <div class="card shadow mb-4">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="fas fa-history"></i> Riwayat
                     </h6>
                 </div>
                 <div class="card-body">
-                    <table class="table table-borderless table-sm">
+                    <table class="table table-borderless table-sm mb-0">
                         <tr>
-                            <td class="font-weight-bold">Dibuat:</td>
-                            <td id="createdAt">-</td>
+                            <td class="font-weight-bold" width="40%">Dibuat:</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->created_at)->format('d M Y H:i') }}</td>
                         </tr>
                         <tr>
                             <td class="font-weight-bold">Update Terakhir:</td>
-                            <td id="updatedAt">-</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->updated_at)->format('d M Y H:i') }}</td>
                         </tr>
+                        @if($bukuCek->submitted_at)
+                        <tr>
+                            <td class="font-weight-bold">Diajukan:</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->submitted_at)->format('d M Y H:i') }}</td>
+                        </tr>
+                        @endif
+                        @if($bukuCek->signed_at)
+                        <tr>
+                            <td class="font-weight-bold">Ditandatangani:</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->signed_at)->format('d M Y H:i') }}</td>
+                        </tr>
+                        @endif
+                        @if($bukuCek->confirmed_at)
+                        <tr>
+                            <td class="font-weight-bold">Dikonfirmasi:</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->confirmed_at)->format('d M Y H:i') }}</td>
+                        </tr>
+                        @endif
+                        @if($bukuCek->rejected_at)
+                        <tr>
+                            <td class="font-weight-bold">Ditolak:</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->rejected_at)->format('d M Y H:i') }}</td>
+                        </tr>
+                        @endif
                     </table>
                 </div>
             </div>
+
+            <!-- Rejection Reason Card (if rejected) -->
+            @if($bukuCek->status === 'ditolak' && $bukuCek->alasan_penolakan)
+            <div class="card shadow mb-4 border-danger">
+                <div class="card-header py-3 bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-times-circle"></i> Alasan Penolakan
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ $bukuCek->alasan_penolakan }}</p>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 </div>
@@ -174,215 +332,31 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    const bukuCekId = {{ $id }};
-    let originalData = null;
-
-    // Load existing data
-    loadBukuCekData();
-
-    // Load buku cek data
-    function loadBukuCekData() {
-        $.ajax({
-            url: `/api/buku-cek/${bukuCekId}`,
-            method: 'GET',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                if (response.success) {
-                    originalData = response.data;
-                    populateForm(originalData);
-                }
-            },
-            error: function(xhr) {
-                if (xhr.status === 404) {
-                    showAlert('error', 'Buku cek tidak ditemukan');
-                    setTimeout(() => window.location.href = '/buku-cek', 2000);
-                } else if (xhr.status === 403) {
-                    showAlert('error', 'Anda tidak memiliki akses untuk mengedit buku cek ini');
-                    setTimeout(() => window.location.href = '/buku-cek', 2000);
-                } else {
-                    showAlert('error', 'Gagal memuat data buku cek');
-                }
-            }
-        });
-    }
-
-    // Populate form with existing data
-    function populateForm(data) {
-        $('#nomor_buku_cek').val(data.nomor_buku_cek);
-        $('#nama_bank').val(data.nama_bank);
-        $('#nomor_rekening').val(data.nomor_rekening);
-        $('#nama_penerima').val(data.nama_penerima);
-        $('#jumlah').val(formatNumber(data.jumlah));
-        $('#keperluan').val(data.keperluan);
-
-        // Rekap info
-        if (data.rekap_pengajuan) {
-            $('#rekap_display').val(data.rekap_pengajuan.nomor_rekap);
-            $('#info_nomor').text(data.rekap_pengajuan.nomor_rekap);
-            $('#info_sisa').text(formatRupiah(data.rekap_pengajuan.sisa_dana));
-
-            if (data.rekap_pengajuan.pencairan_dana?.anggaran_kegiatan) {
-                $('#info_kegiatan').text(data.rekap_pengajuan.pencairan_dana.anggaran_kegiatan.nama_kegiatan);
-            }
-        }
-
-        // Show status info
-        $('#statusInfo').show();
-        $('#currentStatus').html(getStatusBadge(data.status));
-
-        // Show history
-        $('#historyCard').show();
-        $('#createdAt').text(formatDateTime(data.created_at));
-        $('#updatedAt').text(formatDateTime(data.updated_at));
-
-        // Check if can edit
-        if (data.status !== 'draft') {
-            showAlert('warning', 'Buku cek ini tidak dapat diedit karena sudah dalam proses atau telah ditandatangani');
-            $('input:not([readonly]), textarea').prop('readonly', true);
-            $('#btnSubmit').prop('disabled', true);
-        }
-    }
-
-    // Submit form
-    $('#btnSubmit').on('click', function(e) {
-        e.preventDefault();
-        submitForm();
+    // Format number input on typing (optional, for better UX)
+    $('#nomor_rekening').on('input', function() {
+        // Remove non-numeric characters
+        let value = $(this).val().replace(/[^0-9]/g, '');
+        $(this).val(value);
     });
 
-    function submitForm() {
-        // Clear previous errors
-        $('.form-control').removeClass('is-invalid');
-        $('.invalid-feedback').text('');
-
-        // Validate
-        if (!$('#nama_bank').val().trim()) {
-            $('#nama_bank').addClass('is-invalid');
-            $('#nama_bank').siblings('.invalid-feedback').text('Nama bank harus diisi');
-            return;
-        }
-
-        if (!$('#nomor_rekening').val().trim()) {
-            $('#nomor_rekening').addClass('is-invalid');
-            $('#nomor_rekening').siblings('.invalid-feedback').text('Nomor rekening harus diisi');
-            return;
-        }
-
-        if (!$('#nama_penerima').val().trim()) {
-            $('#nama_penerima').addClass('is-invalid');
-            $('#nama_penerima').siblings('.invalid-feedback').text('Nama penerima harus diisi');
-            return;
-        }
-
-        // Disable submit button
-        $('#btnSubmit').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
-
-        // Prepare data
-        const formData = {
-            nama_bank: $('#nama_bank').val().trim(),
-            nomor_rekening: $('#nomor_rekening').val().trim(),
-            nama_penerima: $('#nama_penerima').val().trim(),
-            jumlah: parseFloat($('#jumlah').val().replace(/[^0-9]/g, '')),
-            keperluan: $('#keperluan').val().trim()
-        };
-
-        // Update buku cek
-        $.ajax({
-            url: `/api/buku-cek/${bukuCekId}`,
-            method: 'PUT',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                'Authorization': 'Bearer ' + getToken(),
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify(formData),
-            success: function(response) {
-                if (response.success) {
-                    showAlert('success', response.message);
-                    setTimeout(function() {
-                        window.location.href = `/buku-cek/${bukuCekId}`;
-                    }, 1500);
-                }
-            },
-            error: function(xhr) {
-                // Enable submit button
-                $('#btnSubmit').prop('disabled', false).html('<i class="fas fa-save"></i> Simpan Perubahan');
-
-                if (xhr.status === 422) {
-                    // Validation errors
-                    const errors = xhr.responseJSON.errors;
-                    for (let field in errors) {
-                        $(`#${field}`).addClass('is-invalid');
-                        $(`#${field}`).siblings('.invalid-feedback').text(errors[field][0]);
-                    }
-                    showAlert('error', 'Terdapat kesalahan pada form. Silakan periksa kembali.');
-                } else {
-                    const message = xhr.responseJSON?.message || 'Gagal menyimpan perubahan';
-                    showAlert('error', message);
-                }
-            }
+    // Auto-hide alerts after 5 seconds
+    setTimeout(function() {
+        $('.alert').fadeOut('slow', function() {
+            $(this).remove();
         });
-    }
+    }, 5000);
 
-    // Helper: Get status badge
-    function getStatusBadge(status) {
-        const badges = {
-            'draft': '<span class="badge badge-secondary">Draft</span>',
-            'menunggu_ttd_kepala_jic': '<span class="badge badge-warning">Menunggu TTD</span>',
-            'ditandatangani': '<span class="badge badge-primary">Ditandatangani</span>',
-            'dikonfirmasi_bank': '<span class="badge badge-success">Dikonfirmasi Bank</span>',
-            'ditolak': '<span class="badge badge-danger">Ditolak</span>'
-        };
-        return badges[status] || status;
-    }
-
-    // Helper: Format number with thousand separator
-    function formatNumber(num) {
-        return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-    }
-
-    // Helper: Format Rupiah
-    function formatRupiah(amount) {
-        return 'Rp ' + new Intl.NumberFormat('id-ID').format(amount);
-    }
-
-    // Helper: Format DateTime
-    function formatDateTime(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', { 
-            day: '2-digit', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    // Helper: Show alert
-    function showAlert(type, message) {
-        let alertClass = 'alert-info';
-        if (type === 'success') alertClass = 'alert-success';
-        if (type === 'error') alertClass = 'alert-danger';
-        if (type === 'warning') alertClass = 'alert-warning';
-
-        const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span>&times;</span>
-                </button>
-            </div>
-        `;
-        $('#alertContainer').html(alertHtml);
+    // Confirm before submit
+    $('#formBukuCek').on('submit', function(e) {
+        const confirmed = confirm('Apakah Anda yakin ingin menyimpan perubahan ini?');
+        if (!confirmed) {
+            e.preventDefault();
+            return false;
+        }
         
-        setTimeout(function() {
-            $('.alert').fadeOut('slow', function() {
-                $(this).remove();
-            });
-        }, 5000);
-    }
+        // Disable submit button to prevent double submission
+        $('#btnSubmit').prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menyimpan...');
+    });
 });
 </script>
 @endpush

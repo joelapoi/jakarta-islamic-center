@@ -2,6 +2,53 @@
 
 @section('content')
 <div class="container-fluid">
+    <!-- Alert Messages -->
+    @if(session('success'))
+    <div class="alert alert-success alert-dismissible fade show" role="alert">
+        {{ session('success') }}
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    </div>
+    @endif
+
+    @if(session('error'))
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        {{ session('error') }}
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    </div>
+    @endif
+
+    @if($errors->any())
+    <div class="alert alert-danger alert-dismissible fade show" role="alert">
+        <ul class="mb-0">
+            @foreach($errors->all() as $error)
+                <li>{{ $error }}</li>
+            @endforeach
+        </ul>
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    </div>
+    @endif
+
+    <!-- Debug Info (hanya untuk development) -->
+    @if(config('app.debug'))
+    <div class="alert alert-info alert-dismissible fade show" role="alert">
+        <strong><i class="fas fa-info-circle"></i> Debug Info:</strong><br>
+        User ID: {{ auth()->id() }}<br>
+        User Roles: {{ auth()->user()->roles->pluck('name')->implode(', ') }}<br>
+        Status Buku Cek: <strong>{{ $bukuCek->status }}</strong><br>
+        Can Be Signed: {{ $bukuCek->canBeSigned() ? 'Yes ✓' : 'No ✗' }}<br>
+        Can Sign Permission: {{ $canSign ? 'Yes ✓' : 'No ✗' }}
+        <button type="button" class="close" data-dismiss="alert">
+            <span>&times;</span>
+        </button>
+    </div>
+    @endif
+
     <!-- Page Heading -->
     <div class="d-sm-flex align-items-center justify-content-between mb-4">
         <h1 class="h3 mb-0 text-gray-800">Detail Buku Cek</h1>
@@ -10,9 +57,6 @@
         </a>
     </div>
 
-    <!-- Alert Container -->
-    <div id="alertContainer"></div>
-
     <div class="row">
         <!-- Main Content -->
         <div class="col-lg-8">
@@ -20,22 +64,44 @@
             <div class="card shadow mb-4">
                 <div class="card-header py-3 d-flex justify-content-between align-items-center">
                     <h6 class="m-0 font-weight-bold text-primary">Informasi Buku Cek</h6>
-                    <div id="statusBadge"></div>
+                    <div>
+                        @switch($bukuCek->status)
+                            @case('draft')
+                                <span class="badge badge-secondary">Draft</span>
+                                @break
+                            @case('menunggu_ttd_kepala_jic')
+                                <span class="badge badge-warning">Menunggu TTD</span>
+                                @break
+                            @case('ditandatangani')
+                                <span class="badge badge-primary">Ditandatangani</span>
+                                @break
+                            @case('dikonfirmasi_bank')
+                                <span class="badge badge-success">Dikonfirmasi Bank</span>
+                                @break
+                            @case('ditolak')
+                                <span class="badge badge-danger">Ditolak</span>
+                                @break
+                            @default
+                                <span class="badge badge-secondary">{{ $bukuCek->status }}</span>
+                        @endswitch
+                    </div>
                 </div>
                 <div class="card-body">
                     <table class="table table-borderless">
                         <tr>
                             <td width="35%" class="font-weight-bold">Nomor Buku Cek</td>
                             <td width="5%">:</td>
-                            <td id="nomorBukuCek">-</td>
+                            <td>{{ $bukuCek->nomor_buku_cek }}</td>
                         </tr>
                         <tr>
                             <td class="font-weight-bold">Rekap Pengajuan</td>
                             <td>:</td>
                             <td>
-                                <div id="rekapNomor">-</div>
+                                <div>{{ $bukuCek->rekapPengajuan->nomor_rekap }}</div>
                                 <small class="text-muted">
-                                    <a href="#" id="linkRekap" class="text-primary">Lihat Detail Rekap</a>
+                                    <a href="{{ route('rekap-pengajuan.show', $bukuCek->rekapPengajuan->id) }}" class="text-primary">
+                                        Lihat Detail Rekap
+                                    </a>
                                 </small>
                             </td>
                         </tr>
@@ -43,10 +109,14 @@
                             <td class="font-weight-bold">Kegiatan</td>
                             <td>:</td>
                             <td>
-                                <div id="kegiatanNama">-</div>
+                                <div>{{ $bukuCek->rekapPengajuan->pencairanDana->anggaranKegiatan->nama_kegiatan ?? '-' }}</div>
+                                @if($bukuCek->rekapPengajuan->pencairanDana->anggaranKegiatan ?? false)
                                 <small class="text-muted">
-                                    <a href="#" id="linkKegiatan" class="text-primary">Lihat Detail Kegiatan</a>
+                                    <a href="{{ route('anggaran-kegiatan.show', $bukuCek->rekapPengajuan->pencairanDana->anggaranKegiatan->id) }}" class="text-primary">
+                                        Lihat Detail Kegiatan
+                                    </a>
                                 </small>
+                                @endif
                             </td>
                         </tr>
                         <tr>
@@ -55,27 +125,29 @@
                         <tr>
                             <td class="font-weight-bold">Nama Bank</td>
                             <td>:</td>
-                            <td id="namaBank">-</td>
+                            <td>{{ $bukuCek->nama_bank }}</td>
                         </tr>
                         <tr>
                             <td class="font-weight-bold">Nomor Rekening</td>
                             <td>:</td>
-                            <td id="nomorRekening">-</td>
+                            <td>{{ $bukuCek->nomor_rekening ?? '-' }}</td>
                         </tr>
                         <tr>
                             <td class="font-weight-bold">Nama Penerima</td>
                             <td>:</td>
-                            <td id="namaPenerima">-</td>
+                            <td>{{ $bukuCek->nama_penerima }}</td>
                         </tr>
                         <tr>
                             <td class="font-weight-bold">Jumlah</td>
                             <td>:</td>
-                            <td id="jumlah" class="text-success font-weight-bold h5">-</td>
+                            <td class="text-success font-weight-bold h5">
+                                Rp {{ number_format($bukuCek->jumlah, 0, ',', '.') }}
+                            </td>
                         </tr>
                         <tr>
                             <td class="font-weight-bold">Keperluan</td>
                             <td>:</td>
-                            <td id="keperluan">-</td>
+                            <td>{{ $bukuCek->keperluan ?? '-' }}</td>
                         </tr>
                         <tr>
                             <td colspan="3"><hr></td>
@@ -83,60 +155,162 @@
                         <tr>
                             <td class="font-weight-bold">Tanggal Dibuat</td>
                             <td>:</td>
-                            <td id="createdAt">-</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->created_at)->format('d F Y H:i') }}</td>
                         </tr>
-                        <tr id="ttdRow" style="display: none;">
+                        @if($bukuCek->submitted_at)
+                        <tr>
+                            <td class="font-weight-bold">Diajukan Pada</td>
+                            <td>:</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->submitted_at)->format('d F Y H:i') }}</td>
+                        </tr>
+                        @endif
+                        @if($bukuCek->signed_at)
+                        <tr>
                             <td class="font-weight-bold">Ditandatangani Pada</td>
                             <td>:</td>
-                            <td id="tanggalTtd">-</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->signed_at)->format('d F Y H:i') }}</td>
                         </tr>
-                        <tr id="ttdByRow" style="display: none;">
+                        @endif
+                        @if($bukuCek->signed_by)
+                        <tr>
                             <td class="font-weight-bold">Ditandatangani Oleh</td>
                             <td>:</td>
-                            <td id="ttdBy">-</td>
+                            <td>{{ $bukuCek->signedBy->name ?? 'Kepala JIC' }}</td>
                         </tr>
-                        <tr id="konfirmasiRow" style="display: none;">
+                        @endif
+                        @if($bukuCek->confirmed_at)
+                        <tr>
                             <td class="font-weight-bold">Dikonfirmasi Bank Pada</td>
                             <td>:</td>
-                            <td id="tanggalKonfirmasi">-</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->confirmed_at)->format('d F Y H:i') }}</td>
                         </tr>
-                        <tr id="konfirmasiByRow" style="display: none;">
+                        @endif
+                        @if($bukuCek->confirmed_by)
+                        <tr>
                             <td class="font-weight-bold">Dikonfirmasi Oleh</td>
                             <td>:</td>
-                            <td id="konfirmasiBy">-</td>
+                            <td>{{ $bukuCek->confirmedBy->name ?? 'Bank' }}</td>
                         </tr>
-                        <tr id="catatanRow" style="display: none;">
-                            <td class="font-weight-bold">Catatan</td>
+                        @endif
+                        @if($bukuCek->rejected_at)
+                        <tr>
+                            <td class="font-weight-bold">Ditolak Pada</td>
                             <td>:</td>
-                            <td id="catatan">-</td>
+                            <td>{{ \Carbon\Carbon::parse($bukuCek->rejected_at)->format('d F Y H:i') }}</td>
                         </tr>
+                        @endif
+                        @if($bukuCek->rejected_by)
+                        <tr>
+                            <td class="font-weight-bold">Ditolak Oleh</td>
+                            <td>:</td>
+                            <td>{{ $bukuCek->rejectedBy->name ?? '-' }}</td>
+                        </tr>
+                        @endif
                     </table>
                 </div>
             </div>
 
+            <!-- Rejection Reason Card -->
+            @if($bukuCek->status === 'ditolak' && $bukuCek->alasan_penolakan)
+            <div class="card shadow mb-4 border-danger">
+                <div class="card-header py-3 bg-danger text-white">
+                    <h6 class="m-0 font-weight-bold">
+                        <i class="fas fa-times-circle"></i> Alasan Penolakan
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-danger mb-0">
+                        {{ $bukuCek->alasan_penolakan }}
+                    </div>
+                </div>
+            </div>
+            @endif
+
             <!-- Documents Card -->
-            <div class="card shadow mb-4" id="documentsCard" style="display: none;">
+            @if($bukuCek->documents && $bukuCek->documents->count() > 0)
+            <div class="card shadow mb-4">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">Dokumen Terkait</h6>
                 </div>
                 <div class="card-body">
-                    <div id="documentsList"></div>
+                    <div class="list-group">
+                        @foreach($bukuCek->documents as $doc)
+                        <a href="{{ $doc->file_url }}" target="_blank" class="list-group-item list-group-item-action">
+                            <i class="fas fa-file-pdf text-danger"></i> {{ $doc->nama_dokumen }}
+                            <small class="text-muted float-right">{{ \Carbon\Carbon::parse($doc->created_at)->format('d M Y') }}</small>
+                        </a>
+                        @endforeach
+                    </div>
                 </div>
             </div>
+            @endif
         </div>
 
         <!-- Sidebar -->
         <div class="col-lg-4">
             <!-- Action Card -->
-            <div class="card shadow mb-4" id="actionCard">
+            <div class="card shadow mb-4">
                 <div class="card-header py-3">
                     <h6 class="m-0 font-weight-bold text-primary">
                         <i class="fas fa-tasks"></i> Aksi
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div class="d-grid gap-2" id="actionButtons">
-                        <!-- Buttons will be loaded dynamically -->
+                    <div class="d-grid gap-2">
+                        {{-- Edit Button --}}
+                        @if($canEdit)
+                        <a href="{{ route('buku-cek.edit', $bukuCek->id) }}" class="btn btn-warning btn-block mb-2">
+                            <i class="fas fa-edit"></i> Edit
+                        </a>
+                        @endif
+
+                        {{-- Submit for Approval --}}
+                        @if($canSubmit)
+                        <form action="{{ route('buku-cek.submit', $bukuCek->id) }}" method="POST" class="mb-2" onsubmit="return confirm('Yakin ingin mengajukan buku cek ini untuk ditandatangani?')">
+                            @csrf
+                            <button type="submit" class="btn btn-info btn-block">
+                                <i class="fas fa-paper-plane"></i> Ajukan untuk TTD
+                            </button>
+                        </form>
+                        @endif
+
+                        {{-- Sign Button (Kepala JIC only) --}}
+                        @if($canSign)
+                        <button type="button" class="btn btn-success btn-block mb-2" data-toggle="modal" data-target="#signatureModal">
+                            <i class="fas fa-signature"></i> Tanda Tangan
+                        </button>
+                        @endif
+
+                        {{-- Bank Confirmation Button (Kadiv Umum) --}}
+                        @if($canConfirm)
+                        <button type="button" class="btn btn-primary btn-block mb-2" data-toggle="modal" data-target="#bankConfirmModal">
+                            <i class="fas fa-check-double"></i> Konfirmasi Bank
+                        </button>
+                        @endif
+
+                        {{-- Cancel/Reject Button --}}
+                        @if($canReject)
+                        <button type="button" class="btn btn-danger btn-block mb-2" data-toggle="modal" data-target="#cancelModal">
+                            <i class="fas fa-times"></i> Tolak
+                        </button>
+                        @endif
+
+                        {{-- Delete Button --}}
+                        @if($canDelete)
+                        <form action="{{ route('buku-cek.destroy', $bukuCek->id) }}" 
+                              method="POST" 
+                              onsubmit="return confirm('Apakah Anda yakin ingin menghapus buku cek ini? Data yang dihapus tidak dapat dikembalikan!')">
+                            @csrf
+                            @method('DELETE')
+                            <button type="submit" class="btn btn-danger btn-block">
+                                <i class="fas fa-trash"></i> Hapus
+                            </button>
+                        </form>
+                        @endif
+
+                        @if(!$canEdit && !$canSubmit && !$canSign && !$canConfirm && !$canReject && !$canDelete)
+                        <p class="text-muted mb-0 text-center">Tidak ada aksi tersedia</p>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -149,8 +323,79 @@
                     </h6>
                 </div>
                 <div class="card-body">
-                    <div id="progressSteps">
-                        <!-- Progress will be loaded dynamically -->
+                    <div class="progress-steps">
+                        @php
+                            $steps = [
+                                ['status' => 'draft', 'label' => 'Draft Dibuat', 'icon' => 'file-alt'],
+                                ['status' => 'menunggu_ttd_kepala_jic', 'label' => 'Menunggu TTD', 'icon' => 'signature'],
+                                ['status' => 'ditandatangani', 'label' => 'Ditandatangani', 'icon' => 'check'],
+                                ['status' => 'dikonfirmasi_bank', 'label' => 'Dikonfirmasi Bank', 'icon' => 'check-double']
+                            ];
+                            
+                            $currentStatusIndex = collect($steps)->search(function($step) use ($bukuCek) {
+                                return $step['status'] === $bukuCek->status;
+                            });
+                        @endphp
+
+                        @foreach($steps as $index => $step)
+                            @php
+                                $stepClass = '';
+                                $iconColor = 'text-muted';
+                                $stepStatus = 'Menunggu';
+
+                                if ($bukuCek->status === 'ditolak') {
+                                    if ($index < $currentStatusIndex) {
+                                        $stepClass = 'completed';
+                                        $iconColor = 'text-success';
+                                        $stepStatus = 'Selesai';
+                                    } else {
+                                        $stepClass = 'pending';
+                                        $iconColor = 'text-muted';
+                                        $stepStatus = 'Menunggu';
+                                    }
+                                } else {
+                                    if ($index < $currentStatusIndex) {
+                                        $stepClass = 'completed';
+                                        $iconColor = 'text-success';
+                                        $stepStatus = 'Selesai';
+                                    } elseif ($index == $currentStatusIndex) {
+                                        $stepClass = 'current';
+                                        $iconColor = 'text-primary';
+                                        $stepStatus = 'Sedang Diproses';
+                                    } else {
+                                        $stepClass = 'pending';
+                                        $iconColor = 'text-muted';
+                                        $stepStatus = 'Menunggu';
+                                    }
+                                }
+                            @endphp
+
+                            <div class="step {{ $stepClass }} mb-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="step-icon mr-3">
+                                        <i class="fas fa-{{ $step['icon'] }} fa-2x {{ $iconColor }}"></i>
+                                    </div>
+                                    <div class="step-info">
+                                        <div class="font-weight-bold">{{ $step['label'] }}</div>
+                                        <small class="text-muted">{{ $stepStatus }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+
+                        @if($bukuCek->status === 'ditolak')
+                        <div class="step rejected mb-3">
+                            <div class="d-flex align-items-center">
+                                <div class="step-icon mr-3">
+                                    <i class="fas fa-times-circle fa-2x text-danger"></i>
+                                </div>
+                                <div class="step-info">
+                                    <div class="font-weight-bold text-danger">Ditolak</div>
+                                    <small class="text-muted">Buku cek ditolak</small>
+                                </div>
+                            </div>
+                        </div>
+                        @endif
                     </div>
                 </div>
             </div>
@@ -162,31 +407,34 @@
 <div class="modal fade" id="signatureModal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Tanda Tangan Buku Cek</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p>Dengan menandatangani buku cek ini, Anda menyetujui pencairan dana sebesar:</p>
-                <h4 class="text-center text-success" id="signatureAmount">Rp 0</h4>
-                <p class="text-center">Kepada: <strong id="signatureReceiver">-</strong></p>
-                <hr>
-                <form id="signatureForm">
-                    <div class="form-group">
-                        <label for="signatureCatatan">Catatan (Opsional)</label>
-                        <textarea class="form-control" id="signatureCatatan" rows="3" 
-                                  placeholder="Masukkan catatan jika diperlukan"></textarea>
+            <form action="{{ route('buku-cek.sign', $bukuCek->id) }}" method="POST">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title">Tanda Tangan Buku Cek</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Dengan menandatangani buku cek ini, Anda menyetujui pencairan dana sebesar:</p>
+                    <h4 class="text-center text-success">Rp {{ number_format($bukuCek->jumlah, 0, ',', '.') }}</h4>
+                    <p class="text-center">Kepada: <strong>{{ $bukuCek->nama_penerima }}</strong></p>
+                    <hr>
+                    <div class="alert alert-info">
+                        <strong>Detail:</strong>
+                        <ul class="mb-0">
+                            <li>Bank: {{ $bukuCek->nama_bank }}</li>
+                            <li>No. Rekening: {{ $bukuCek->nomor_rekening }}</li>
+                        </ul>
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-success" id="btnConfirmSignature">
-                    <i class="fas fa-signature"></i> Tanda Tangan
-                </button>
-            </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-signature"></i> Tanda Tangan
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -195,51 +443,84 @@
 <div class="modal fade" id="bankConfirmModal" tabindex="-1" role="dialog">
     <div class="modal-dialog" role="document">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Konfirmasi Bank</h5>
-                <button type="button" class="close" data-dismiss="modal">
-                    <span>&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p>Konfirmasi bahwa dana telah dicairkan ke bank:</p>
-                <table class="table table-sm table-borderless">
-                    <tr>
-                        <td width="40%">Bank</td>
-                        <td>:</td>
-                        <td id="confirmBank">-</td>
-                    </tr>
-                    <tr>
-                        <td>No. Rekening</td>
-                        <td>:</td>
-                        <td id="confirmRekening">-</td>
-                    </tr>
-                    <tr>
-                        <td>Penerima</td>
-                        <td>:</td>
-                        <td id="confirmPenerima">-</td>
-                    </tr>
-                    <tr>
-                        <td>Jumlah</td>
-                        <td>:</td>
-                        <td class="text-success font-weight-bold" id="confirmAmount">Rp 0</td>
-                    </tr>
-                </table>
-                <hr>
-                <form id="confirmForm">
-                    <div class="form-group">
-                        <label for="confirmCatatan">Catatan (Opsional)</label>
-                        <textarea class="form-control" id="confirmCatatan" rows="3" 
-                                  placeholder="Masukkan catatan konfirmasi"></textarea>
+            <form action="{{ route('buku-cek.cash', $bukuCek->id) }}" method="POST">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title">Konfirmasi Bank</h5>
+                    <button type="button" class="close" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <p>Konfirmasi bahwa dana telah dicairkan ke bank:</p>
+                    <table class="table table-sm table-borderless">
+                        <tr>
+                            <td width="40%">Bank</td>
+                            <td>:</td>
+                            <td>{{ $bukuCek->nama_bank }}</td>
+                        </tr>
+                        <tr>
+                            <td>No. Rekening</td>
+                            <td>:</td>
+                            <td>{{ $bukuCek->nomor_rekening }}</td>
+                        </tr>
+                        <tr>
+                            <td>Penerima</td>
+                            <td>:</td>
+                            <td>{{ $bukuCek->nama_penerima }}</td>
+                        </tr>
+                        <tr>
+                            <td>Jumlah</td>
+                            <td>:</td>
+                            <td class="text-success font-weight-bold">Rp {{ number_format($bukuCek->jumlah, 0, ',', '.') }}</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check"></i> Konfirmasi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Cancel/Reject Modal -->
+<div class="modal fade" id="cancelModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form action="{{ route('buku-cek.cancel', $bukuCek->id) }}" method="POST">
+                @csrf
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Tolak Buku Cek</h5>
+                    <button type="button" class="close text-white" data-dismiss="modal">
+                        <span>&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle"></i> 
+                        Anda akan menolak buku cek ini. Pastikan Anda memberikan alasan yang jelas.
                     </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
-                <button type="button" class="btn btn-success" id="btnConfirmBank">
-                    <i class="fas fa-check"></i> Konfirmasi
-                </button>
-            </div>
+                    <div class="form-group">
+                        <label for="alasan_penolakan">Alasan Penolakan <span class="text-danger">*</span></label>
+                        <textarea class="form-control" 
+                                  id="alasan_penolakan" 
+                                  name="alasan_penolakan" 
+                                  rows="4" 
+                                  placeholder="Jelaskan alasan penolakan..."
+                                  required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Batal</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times"></i> Tolak Buku Cek
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -249,439 +530,30 @@
 @push('scripts')
 <script>
 $(document).ready(function() {
-    const bukuCekId = {{ $id }};
-    let bukuCekData = null;
-    let userRole = null;
-
-    // Load user role first, then load data
-    getUserRole();
-
-    // Get user role
-    function getUserRole() {
-        $.ajax({
-            url: '/api/auth/me',
-            method: 'GET',
-            headers: {
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                if (response.success) {
-                    const user = response.data || response.user;
-                    const roles = user && user.roles ? user.roles : [];
-                    if (roles.length > 0) {
-                        const first = roles[0];
-                        if (typeof first === 'object' && first.name) {
-                            userRole = first.name.toLowerCase().trim().replace(/\s+/g, '_');
-                        } else if (typeof first === 'string') {
-                            userRole = first.toLowerCase().trim().replace(/\s+/g, '_');
-                        }
-                        console.log('User role (normalized from API):', userRole);
-                    }
-                }
-                loadBukuCekDetail();
-            },
-            error: function(xhr) {
-                console.log('Failed to fetch user role from /api/auth/me');
-                try {
-                    const user = JSON.parse(localStorage.getItem('user'));
-                    const roles = user && user.roles ? user.roles : [];
-                    if (roles.length > 0) {
-                        const first = roles[0];
-                        if (typeof first === 'object' && first.name) {
-                            userRole = first.name.toLowerCase().trim().replace(/\s+/g, '_');
-                        } else if (typeof first === 'string') {
-                            userRole = first.toLowerCase().trim().replace(/\s+/g, '_');
-                        }
-                        console.log('User role (from localStorage, normalized):', userRole);
-                    }
-                } catch (e) {
-                    console.log('No user in localStorage');
-                }
-                loadBukuCekDetail();
-            }
+    // Auto-hide alerts after 5 seconds
+    setTimeout(function() {
+        $('.alert').not('.alert-danger').fadeOut('slow', function() {
+            $(this).remove();
         });
-    }
-
-    // Load buku cek detail
-    function loadBukuCekDetail() {
-        $.ajax({
-            url: `/api/buku-cek/${bukuCekId}`,
-            method: 'GET',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-                'Authorization': 'Bearer ' + getToken(),
-            },
-            success: function(response) {
-                if (response.success) {
-                    bukuCekData = response.data;
-                    renderDetail(bukuCekData);
-                    renderActionButtons(bukuCekData);
-                    renderProgress(bukuCekData);
-                }
-            },
-            error: function(xhr) {
-                if (xhr.status === 404) {
-                    showAlert('error', 'Buku cek tidak ditemukan');
-                    setTimeout(() => window.location.href = '/buku-cek', 2000);
-                } else {
-                    showAlert('error', 'Gagal memuat data buku cek');
-                }
-            }
-        });
-    }
-
-    // Render detail
-    function renderDetail(data) {
-        $('#nomorBukuCek').text(data.nomor_cek);
-        $('#namaBank').text(data.bank_name);
-        $('#nomorRekening').text(data.nomor_rekening || '-');
-        $('#namaPenerima').text(data.penerima);
-        $('#jumlah').text(formatRupiah(data.nominal));
-        $('#keperluan').text(data.keterangan || '-');
-        $('#createdAt').text(formatDateTime(data.created_at));
-        $('#statusBadge').html(getStatusBadge(data.status));
-
-        // Rekap info
-        if (data.rekap_pengajuan) {
-            const rekap = data.rekap_pengajuan;
-            $('#rekapNomor').text(rekap.nomor_rekap);
-            $('#linkRekap').attr('href', `/rekap-pengajuan/${rekap.id}`);
-
-            // Kegiatan info
-            if (rekap.pencairan_dana?.anggaran_kegiatan) {
-                $('#kegiatanNama').text(rekap.pencairan_dana.anggaran_kegiatan.nama_kegiatan);
-                $('#linkKegiatan').attr('href', `/anggaran-kegiatan/${rekap.pencairan_dana.anggaran_kegiatan.id}`);
-            }
-        }
-
-        // Show signature info if signed
-        if (data.signed_at) {
-            $('#ttdRow, #ttdByRow').show();
-            $('#tanggalTtd').text(formatDateTime(data.signed_at));
-            // Note: signed_by user info will need to be added to controller response
-            $('#ttdBy').text(data.signed_by?.name || 'Kepala JIC');
-        }
-
-        // Show confirmation info if confirmed (cashed)
-        if (data.cashed_at) {
-            $('#konfirmasiRow, #konfirmasiByRow').show();
-            $('#tanggalKonfirmasi').text(formatDateTime(data.cashed_at));
-            // Note: cashed_by user info will need to be added to controller response
-            $('#konfirmasiBy').text(data.cashed_by?.name || 'Bank');
-        }
-
-        // Show catatan if exists (using notes field if available)
-        if (data.notes) {
-            $('#catatanRow').show();
-            $('#catatan').html(`<div class="alert alert-info mb-0">${data.notes}</div>`);
-        }
-
-        // Show documents if exists
-        if (data.documents && data.documents.length > 0) {
-            $('#documentsCard').show();
-            renderDocuments(data.documents);
-        }
-    }
-
-    // Render action buttons based on status and user role
-    function renderActionButtons(data) {
-        let buttons = '';
-        const status = data.status;
-
-        // Edit button for draft
-        if (status === 'draft') {
-            buttons += `
-                <a href="/buku-cek/${data.id}/edit" class="btn btn-warning btn-block mb-2">
-                    <i class="fas fa-edit"></i> Edit
-                </a>
-            `;
-        }
-
-        // Delete button for draft
-        if (status === 'draft') {
-            buttons += `
-                <button type="button" class="btn btn-danger btn-block mb-2" id="btnDelete">
-                    <i class="fas fa-trash"></i> Hapus
-                </button>
-            `;
-        }
-
-        // Signature button for Kepala JIC
-        if (status === 'menunggu_ttd_kepala_jic' && (userRole === 'kepala_jic' || userRole === 'super_admin' || userRole === 'admin')) {
-            buttons += `
-                <button type="button" class="btn btn-success btn-block mb-2" id="btnSign">
-                    <i class="fas fa-signature"></i> Tanda Tangan
-                </button>
-            `;
-        }
-
-        // Bank confirmation button
-        if (status === 'ditandatangani' && (userRole === 'kadiv_umum' || userRole === 'kepala_jic' || userRole === 'super_admin' || userRole === 'admin')) {
-            buttons += `
-                <button type="button" class="btn btn-primary btn-block mb-2" id="btnConfirm">
-                    <i class="fas fa-check-double"></i> Konfirmasi Bank
-                </button>
-            `;
-        }
-
-        if (buttons === '') {
-            buttons = '<p class="text-muted mb-0">Tidak ada aksi tersedia</p>';
-        }
-
-        $('#actionButtons').html(buttons);
-    }
-
-    // Render progress
-    function renderProgress(data) {
-        const steps = [
-            { status: 'draft', label: 'Draft Dibuat', icon: 'file-alt' },
-            { status: 'menunggu_ttd_kepala_jic', label: 'Menunggu TTD', icon: 'signature' },
-            { status: 'ditandatangani', label: 'Ditandatangani', icon: 'check' },
-            { status: 'dikonfirmasi_bank', label: 'Dikonfirmasi Bank', icon: 'check-double' }
-        ];
-
-        const currentStatus = data.status;
-        const statusIndex = steps.findIndex(s => s.status === currentStatus);
-
-        let html = '<div class="progress-steps">';
-        
-        steps.forEach((step, index) => {
-            let stepClass = '';
-            let iconColor = 'text-muted';
-
-            if (currentStatus === 'ditolak') {
-                stepClass = index < statusIndex ? 'completed' : 'pending';
-                iconColor = index < statusIndex ? 'text-success' : 'text-muted';
-            } else {
-                if (index < statusIndex) {
-                    stepClass = 'completed';
-                    iconColor = 'text-success';
-                } else if (index === statusIndex) {
-                    stepClass = 'current';
-                    iconColor = 'text-primary';
-                } else {
-                    stepClass = 'pending';
-                    iconColor = 'text-muted';
-                }
-            }
-
-            html += `
-                <div class="step ${stepClass} mb-3">
-                    <div class="d-flex align-items-center">
-                        <div class="step-icon mr-3">
-                            <i class="fas fa-${step.icon} fa-2x ${iconColor}"></i>
-                        </div>
-                        <div class="step-info">
-                            <div class="font-weight-bold">${step.label}</div>
-                            <small class="text-muted">${getStepStatus(stepClass)}</small>
-                        </div>
-                    </div>
-                </div>
-            `;
-        });
-
-        if (currentStatus === 'ditolak') {
-            html += `
-                <div class="step rejected mb-3">
-                    <div class="d-flex align-items-center">
-                        <div class="step-icon mr-3">
-                            <i class="fas fa-times-circle fa-2x text-danger"></i>
-                        </div>
-                        <div class="step-info">
-                            <div class="font-weight-bold text-danger">Ditolak</div>
-                            <small class="text-muted">Buku cek ditolak</small>
-                        </div>
-                    </div>
-                </div>
-            `;
-        }
-
-        html += '</div>';
-        $('#progressSteps').html(html);
-    }
-
-    function getStepStatus(stepClass) {
-        if (stepClass === 'completed') return 'Selesai';
-        if (stepClass === 'current') return 'Sedang Diproses';
-        return 'Menunggu';
-    }
-
-    // Render documents
-    function renderDocuments(documents) {
-        let html = '<div class="list-group">';
-        documents.forEach(doc => {
-            html += `
-                <a href="${doc.file_url}" target="_blank" class="list-group-item list-group-item-action">
-                    <i class="fas fa-file-pdf text-danger"></i> ${doc.nama_dokumen}
-                    <small class="text-muted float-right">${formatDate(doc.created_at)}</small>
-                </a>
-            `;
-        });
-        html += '</div>';
-        $('#documentsList').html(html);
-    }
-
-    // Delete
-    $(document).on('click', '#btnDelete', function() {
-        if (confirm('Apakah Anda yakin ingin menghapus buku cek ini? Data yang dihapus tidak dapat dikembalikan!')) {
-            $.ajax({
-                url: `/api/buku-cek/${bukuCekId}`,
-                method: 'DELETE',
-                headers: {
-                    // 'Authorization': 'Bearer ' + localStorage.getItem('token')
-                    'Authorization': 'Bearer ' + getToken(),
-                },
-                success: function(response) {
-                    if (response.success) {
-                        showAlert('success', response.message);
-                        setTimeout(() => window.location.href = '/buku-cek', 1500);
-                    }
-                },
-                error: function(xhr) {
-                    showAlert('error', xhr.responseJSON?.message || 'Gagal menghapus buku cek');
-                }
-            });
-        }
-    });
-
-    // Show signature modal
-    $(document).on('click', '#btnSign', function() {
-        $('#signatureAmount').text(formatRupiah(bukuCekData.nominal));
-        $('#signatureReceiver').text(bukuCekData.penerima);
-        $('#signatureCatatan').val('');
-        $('#signatureModal').modal('show');
-    });
+    }, 5000);
 
     // Confirm signature
-    $('#btnConfirmSignature').on('click', function() {
-        const catatan = $('#signatureCatatan').val();
-        
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Menandatangani...');
-
-        $.ajax({
-            url: `/api/buku-cek/${bukuCekId}/sign`,
-            method: 'POST',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                'Authorization': 'Bearer ' + getToken(),
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify({ catatan: catatan }),
-            success: function(response) {
-                if (response.success) {
-                    $('#signatureModal').modal('hide');
-                    showAlert('success', response.message);
-                    setTimeout(() => loadBukuCekDetail(), 1500);
-                }
-            },
-            error: function(xhr) {
-                showAlert('error', xhr.responseJSON?.message || 'Gagal menandatangani buku cek');
-            },
-            complete: function() {
-                $('#btnConfirmSignature').prop('disabled', false).html('<i class="fas fa-signature"></i> Tanda Tangan');
-            }
-        });
+    $('form[action*="sign"]').on('submit', function(e) {
+        const confirmed = confirm('Apakah Anda yakin ingin menandatangani buku cek ini?');
+        if (!confirmed) {
+            e.preventDefault();
+            return false;
+        }
     });
 
-    // Show bank confirm modal
-    $(document).on('click', '#btnConfirm', function() {
-        $('#confirmBank').text(bukuCekData.bank_name);
-        $('#confirmRekening').text(bukuCekData.nomor_rekening || '-');
-        $('#confirmPenerima').text(bukuCekData.penerima);
-        $('#confirmAmount').text(formatRupiah(bukuCekData.nominal));
-        $('#confirmCatatan').val('');
-        $('#bankConfirmModal').modal('show');
+    // Confirm bank confirmation
+    $('form[action*="cash"]').on('submit', function(e) {
+        const confirmed = confirm('Apakah Anda yakin dana telah dikonfirmasi oleh bank?');
+        if (!confirmed) {
+            e.preventDefault();
+            return false;
+        }
     });
-
-    // Confirm bank
-    $('#btnConfirmBank').on('click', function() {
-        const catatan = $('#confirmCatatan').val();
-        
-        $(this).prop('disabled', true).html('<i class="fas fa-spinner fa-spin"></i> Mengkonfirmasi...');
-
-        $.ajax({
-            url: `/api/buku-cek/${bukuCekId}/confirm-bank`,
-            method: 'POST',
-            headers: {
-                // 'Authorization': 'Bearer ' + localStorage.getItem('token'),
-                'Authorization': 'Bearer ' + getToken(),
-                'Content-Type': 'application/json'
-            },
-            data: JSON.stringify({ catatan: catatan }),
-            success: function(response) {
-                if (response.success) {
-                    $('#bankConfirmModal').modal('hide');
-                    showAlert('success', response.message);
-                    setTimeout(() => loadBukuCekDetail(), 1500);
-                }
-            },
-            error: function(xhr) {
-                showAlert('error', xhr.responseJSON?.message || 'Gagal mengkonfirmasi bank');
-            },
-            complete: function() {
-                $('#btnConfirmBank').prop('disabled', false).html('<i class="fas fa-check"></i> Konfirmasi');
-            }
-        });
-    });
-
-    // Helper functions
-    function getStatusBadge(status) {
-        const badges = {
-            'draft': '<span class="badge badge-secondary">Draft</span>',
-            'menunggu_ttd_kepala_jic': '<span class="badge badge-warning">Menunggu TTD</span>',
-            'ditandatangani': '<span class="badge badge-primary">Ditandatangani</span>',
-            'dikonfirmasi_bank': '<span class="badge badge-success">Dikonfirmasi Bank</span>',
-            'ditolak': '<span class="badge badge-danger">Ditolak</span>'
-        };
-        return badges[status] || status;
-    }
-
-    function formatRupiah(amount) {
-        return 'Rp ' + new Intl.NumberFormat('id-ID').format(amount);
-    }
-
-    function formatDate(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', { 
-            day: '2-digit', 
-            month: 'long', 
-            year: 'numeric' 
-        });
-    }
-
-    function formatDateTime(dateString) {
-        const date = new Date(dateString);
-        return date.toLocaleDateString('id-ID', { 
-            day: '2-digit', 
-            month: 'long', 
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
-    }
-
-    function showAlert(type, message) {
-        let alertClass = 'alert-info';
-        if (type === 'success') alertClass = 'alert-success';
-        if (type === 'error') alertClass = 'alert-danger';
-        if (type === 'warning') alertClass = 'alert-warning';
-
-        const alertHtml = `
-            <div class="alert ${alertClass} alert-dismissible fade show" role="alert">
-                ${message}
-                <button type="button" class="close" data-dismiss="alert">
-                    <span>&times;</span>
-                </button>
-            </div>
-        `;
-        $('#alertContainer').html(alertHtml);
-        
-        setTimeout(function() {
-            $('.alert').fadeOut('slow', function() {
-                $(this).remove();
-            });
-        }, 5000);
-    }
 });
 </script>
 
@@ -708,6 +580,11 @@ $(document).ready(function() {
 
 .progress-steps .step.current:not(:last-child)::after {
     background-color: #4e73df;
+}
+
+.d-grid {
+    display: grid;
+    gap: 0.5rem;
 }
 </style>
 @endpush
